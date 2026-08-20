@@ -2,13 +2,13 @@
 
 Статус: **черновик, предложение**. Ни один пункт не является принятым решением.
 Дата: 2026-08-11 (редакция 3 — минимально жизнеспособный контур как каркас, D-014).
-Место: корень воркспейса, над каталогами `vds-kz-lina/`, `vds-kz-pact/`, `vds-kz-mita/`, `vds-kz-cita/`.
+Место: единый репозиторий `lpmc`, каталоги контуров — `docs/contours/{lina,pact,mita,cita}/`.
 
-Связанные документы: [`cloud-vds-admin/second-system/CONTOURS.md`](cloud-vds-admin/second-system/CONTOURS.md),
-[`SPECIFICATION.md`](cloud-vds-admin/second-system/SPECIFICATION.md),
-[`DECISIONS.md`](cloud-vds-admin/second-system/DECISIONS.md),
-[`REVIEW-FINDINGS.md`](cloud-vds-admin/second-system/REVIEW-FINDINGS.md),
-спецификации контуров `vds-kz-*/docs/spec/spec.md`, ADR `vds-kz-*/docs/adr/`.
+Связанные документы: [`docs/design/CONTOURS.md`](docs/design/CONTOURS.md),
+[`SPECIFICATION.md`](docs/design/SPECIFICATION.md),
+[`DECISIONS.md`](docs/design/DECISIONS.md),
+[`REVIEW-FINDINGS.md`](docs/design/REVIEW-FINDINGS.md),
+спецификации контуров `docs/contours/*/spec/spec.md`, ADR `docs/contours/*/adr/`.
 
 ---
 
