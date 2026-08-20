@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: lpmc_system
+  description: Развёртывание узла LPMC (LINA/PACT/MITA/CITA) — каркас
+dependencies: []

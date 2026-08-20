@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "strict": true,
+    // Объявления зависимостей не проверяем: наши строгие правила (в частности
+    // exactOptionalPropertyTypes) чужой код не обязан выдерживать, и его ошибки
+    // не должны блокировать сборку нашего.
+    "skipLibCheck": true, "noUncheckedIndexedAccess": true, "exactOptionalPropertyTypes": true,
+    "noEmitOnError": true, "declaration": true, "removeComments": false
+  }
+}

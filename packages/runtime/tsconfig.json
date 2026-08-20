@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": ".", "paths": { "@lpmc/contracts": ["../contracts/dist/src/index.d.ts"] } },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
