@@ -2164,3 +2164,21 @@
       set -euo pipefail
       exec sudo -u lpmc-lina /usr/bin/node \
         {{ lpmc_system_app_dir }}/packages/tui/dist/src/main.js "$@"
+
+# Операторская консоль расширения (@lpmc/admin). Привилегированный инструмент:
+# пишет политику PACT и custody, поэтому запускается под пользователем арбитра
+# (lpmc-pact), у которого есть схема PACT и мастер-ключ. Недоверенному контуру
+# сюда доступа нет. Тот же приём exec sudo -u, что и у lpmc-tui.
+- name: Положить обёртку операторской консоли расширения
+  ansible.builtin.copy:
+    dest: /usr/local/bin/lpmc-admin
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Операторская консоль LPMC. Управляется ролью lpmc_system — правки вручную
+      # будут перезаписаны. Запускается под пользователем схемы PACT.
+      set -euo pipefail
+      exec sudo -u lpmc-pact /usr/bin/node \
+        {{ lpmc_system_app_dir }}/packages/admin/dist/src/main.js "$@"

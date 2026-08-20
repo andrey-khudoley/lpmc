@@ -10,3 +10,4 @@ export * from "./token-sign.js";
 export * from "./irreversibility.js";
 export * from "./secrets.js";
 export * from "./internal-trace.js";
+export * from "./header-value.js";
