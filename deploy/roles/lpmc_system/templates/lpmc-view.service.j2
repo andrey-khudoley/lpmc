@@ -1,0 +1,24 @@
+# Привратник одноразового просмотра. Управляется ролью lpmc_system.
+[Unit]
+Description=Привратник просмотра экрана системы LPMC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ lpmc_system_view_user }}
+Group={{ lpmc_system_view_user }}
+ExecStart=/usr/bin/node {{ lpmc_system_view_dir }}/dist/main.js \
+  --config {{ lpmc_system_conf_dir }}/view.json \
+  --admin-group {{ lpmc_system_view_admin_group }}
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=lpmc-view
+RuntimeDirectoryMode=0755
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

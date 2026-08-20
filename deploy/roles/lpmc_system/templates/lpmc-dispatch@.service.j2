@@ -1,0 +1,38 @@
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+#
+# Шаблонный юнит служб контура dispatch: %i — имя модуля службы. Путь к ключу брокера
+# задан в коде самой службы, а не здесь: разные службы одного контура ходят
+# в брокер под РАЗНЫМИ учётными записями, и подмена ключа настройкой юнита
+# означала бы возможность выдать одной службе права другой.
+[Unit]
+Description=Служба dispatch: %i
+After=network-online.target postgresql.service lpmc-nats.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=lpmc-dispatch
+Group=lpmc-dispatch
+Environment=LPMC_NATS_SERVER={{ lpmc_system_nats_listen }}
+ExecStart=/usr/bin/node {{ lpmc_system_app_dir }}/packages/dispatch/dist/src/%i.js
+# Каталог в /run для служб, которые слушают unix-сокет. %p — префикс юнита,
+# то есть lpmc-<контур>: каталог называется так же и принадлежит контуру.
+RuntimeDirectory=%p
+RuntimeDirectoryMode=0755
+# Каталог общий для всех служб контура, поэтому его нельзя удалять при остановке
+# одной из них: иначе остановка соседа стирает живой сокет работающей службы,
+# и связь рвётся у того, кого никто не трогал.
+RuntimeDirectoryPreserve=yes
+Restart=always
+RestartSec=5
+
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+PrivateDevices=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

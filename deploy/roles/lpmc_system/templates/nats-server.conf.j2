@@ -1,0 +1,85 @@
+# Конфигурация брокера событий системы LPMC.
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+
+server_name: lpmc
+listen: {{ lpmc_system_nats_listen }}
+http: {{ lpmc_system_nats_monitor }}
+
+jetstream {
+  store_dir: "{{ lpmc_system_nats_store }}"
+  max_memory_store: {{ lpmc_system_nats_max_memory_store }}
+  max_file_store: {{ lpmc_system_nats_max_file_store }}
+}
+
+# Аутентификация по nkey: ниже только ПУБЛИЧНЫЕ ключи. Приватная часть (seed)
+# лежит у каждого компонента в его каталоге состояния с правами 0600.
+#
+# О правах на «$JS.API.*» и «$JS.ACK.*». Это не события, а вызовы управления
+# доставкой: создание потребителя, запрос следующей порции, подтверждение
+# обработки. Они идут тем же механизмом публикации, поэтому «publish» здесь
+# означает две разные вещи. Компонент, которому запрещено публиковать события,
+# всё равно должен уметь подтверждать обработку — иначе он не сможет ничего
+# прочитать. Разделено явно: сначала темы событий, затем вызовы управления.
+authorization {
+  users = [
+{% for u in lpmc_system_broker_users | selectattr('deployed') %}
+{% set js = [] %}
+{% if (u.streams_read | default([])) | length > 0 %}
+{# Сведения об учётной записи: клиент запрашивает их до первой же операции
+   с потоками. Это чтение собственных ограничений, а не право над потоками. #}
+{% set _ = js.append("$JS.API.INFO") %}
+{% endif %}
+{% for st in u.streams_read | default([]) %}
+{# Две формы вызова создания потребителя: клиенты разных версий обращаются то
+   к CONSUMER.CREATE, то к CONSUMER.DURABLE.CREATE. Выдана только своя пара
+   «поток + потребитель», удаление потребителя не выдано. #}
+{% set _ = js.extend([
+     "$JS.API.CONSUMER.CREATE." ~ st ~ ".>",
+     "$JS.API.CONSUMER.DURABLE.CREATE." ~ st ~ ".>",
+     "$JS.API.CONSUMER.INFO." ~ st ~ ".>",
+     "$JS.API.CONSUMER.MSG.NEXT." ~ st ~ ".>",
+     "$JS.API.STREAM.INFO." ~ st,
+     "$JS.ACK." ~ st ~ ".>"]) %}
+{% endfor %}
+{% if u.stream_admin | default(false) %}
+{# Заведение и правка потоков. Удаление и очистка НЕ выданы: они уничтожают
+   историю, и такое действие не должно быть возможно у процесса, который
+   запускается регулярно и без участия человека. #}
+{% set _ = js.extend([
+     "$JS.API.INFO",
+     "$JS.API.STREAM.CREATE.>",
+     "$JS.API.STREAM.UPDATE.>",
+     "$JS.API.STREAM.INFO.>",
+     "$JS.API.STREAM.LIST",
+     "$JS.API.STREAM.NAMES"]) %}
+{% endif %}
+    # {{ u.name }} (процесс под {{ u.os_user }})
+    { nkey: "{{ lpmc_nats_pubkeys[u.name] }}", permissions: {
+        publish: {
+{% if (u.publish | length) + (js | length) == 0 %}
+          # Ни событий, ни вызовов управления: см. обоснование в defaults/main.yml.
+          deny: [">"]
+{% else %}
+          allow: [
+{% for s in u.publish %}
+            "{{ s }}",
+{% endfor %}
+{% for s in js %}
+            "{{ s }}",
+{% endfor %}
+          ]
+{% endif %}
+        },
+        subscribe: {
+          allow: [
+{% for s in u.subscribe %}
+            "{{ s }}",
+{% endfor %}
+            "_INBOX.>",
+          ]
+        }
+      }
+    },
+{% endfor %}
+  ]
+}

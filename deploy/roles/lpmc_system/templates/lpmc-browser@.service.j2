@@ -1,0 +1,54 @@
+# Браузерный инстанс владельца %i. Управляется ролью lpmc_system.
+# Правки вручную будут перезаписаны.
+[Unit]
+Description=Браузер системы LPMC — инстанс владельца %i
+After=network-online.target lpmc-egress.service
+Wants=network-online.target
+Requires=lpmc-egress.service
+
+[Service]
+Type=simple
+User={{ lpmc_system_browser_user }}
+Group={{ lpmc_system_browser_user }}
+Environment=HOME={{ lpmc_system_root }}/browser
+Environment=XDG_RUNTIME_DIR=/run/lpmc-browser
+Environment=WLR_BACKENDS=headless
+# Программный рендер: видеокарты на VDS нет, с GL-рендерером cage не стартует.
+Environment=WLR_RENDERER=pixman
+Environment=LIBGL_ALWAYS_SOFTWARE=1
+RuntimeDirectory=lpmc-browser
+RuntimeDirectoryMode=0700
+
+# Флаги гигиены: браузер по умолчанию сам обращается к сервисам обновления,
+# синхронизации и телеметрии. Эти обращения прокси всё равно отклоняет (учётных
+# данных у них нет), но они засоряют журнал внешних вызовов, который служит
+# аудитом. Отключаем на стороне браузера, оставляя механизм на стороне прокси.
+# cage показывает ровно одно приложение на весь экран и завершается вместе с ним.
+# Headed, а не headless: в фоновой вкладке Chrome останавливает анимацию, и клик
+# Playwright умирает по таймауту — решение заимствовано из роли kiosk_browser
+# вместе с его обоснованием.
+ExecStart=/usr/bin/cage -- {{ lpmc_browser_binary }} \
+  --user-data-dir={{ lpmc_system_browser_dir }}/profiles/%i \
+  --remote-debugging-port={{ lpmc_system_browser_cdp_base }} \
+  --remote-debugging-address=127.0.0.1 \
+  --proxy-server=http://{{ lpmc_system_egress_listen }} \
+  --proxy-bypass-list=<-loopback> \
+  --disable-quic \
+  --no-first-run \
+  --no-default-browser-check \
+  --disable-features=Translate,MediaRouter \
+  --disable-background-networking \
+  --disable-component-update \
+  --disable-domain-reliability \
+  --disable-sync \
+  --no-service-autorun \
+  --metrics-recording-only \
+  about:blank
+
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,55 @@
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+#
+# Шаблонный юнит служб контура pact: %i — имя модуля службы. Путь к ключу брокера
+# задан в коде самой службы, а не здесь: разные службы одного контура ходят
+# в брокер под РАЗНЫМИ учётными записями, и подмена ключа настройкой юнита
+# означала бы возможность выдать одной службе права другой.
+[Unit]
+Description=Служба pact: %i
+After=network-online.target postgresql.service lpmc-nats.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=lpmc-pact
+Group=lpmc-pact
+SupplementaryGroups={{ lpmc_system_lease_group }} {{ lpmc_system_model_group }}
+Environment=LPMC_NATS_SERVER={{ lpmc_system_nats_listen }}
+Environment=LPMC_LEASE_GROUP={{ lpmc_system_lease_group }}
+Environment=LPMC_MODEL_GROUP={{ lpmc_system_model_group }}
+Environment=LPMC_APPROVAL_LISTEN={{ lpmc_system_approval_listen }}
+Environment=LPMC_APPROVAL_PATH={{ lpmc_system_approval_path_prefix }}
+Environment=LPMC_APPROVAL_TTL_SECONDS={{ lpmc_system_approval_ttl_seconds }}
+Environment=LPMC_LEASE_TTL_SECONDS={{ lpmc_system_lease_ttl_seconds }}
+Environment=LPMC_SECRET_TTL_SECONDS={{ lpmc_system_secret_ttl_seconds }}
+Environment=LPMC_SECRET_DIGEST_GRACE_SECONDS={{ lpmc_system_secret_digest_grace_seconds }}
+{% if lpmc_system_public_domain %}
+Environment=LPMC_APPROVAL_BASE_URL=https://{{ lpmc_system_public_domain }}:{{ lpmc_system_public_port }}{{ lpmc_system_approval_path_prefix }}
+{% endif %}
+# Развёрнутые на узле исполнители: правило вправе назвать любого из закрытого
+# перечня, но обратиться можно лишь к тому, кто здесь есть.
+Environment=LPMC_DEPLOYED_EXECUTORS={{ lpmc_system_components | selectattr('kind', 'equalto', 'contour')
+  | selectattr('deployed') | map(attribute='name') | select('in', ['mita', 'cita']) | join(',') }}
+Environment=LPMC_EGRESS_LISTEN={{ lpmc_system_egress_listen }}
+ExecStart=/usr/bin/node {{ lpmc_system_app_dir }}/packages/pact/dist/src/%i.js
+# Каталог в /run для служб, которые слушают unix-сокет. %p — префикс юнита,
+# то есть lpmc-<контур>: каталог называется так же и принадлежит контуру.
+RuntimeDirectory=%p
+RuntimeDirectoryMode=0755
+# Каталог общий для всех служб контура, поэтому его нельзя удалять при остановке
+# одной из них: иначе остановка соседа стирает живой сокет работающей службы,
+# и связь рвётся у того, кого никто не трогал.
+RuntimeDirectoryPreserve=yes
+Restart=always
+RestartSec=5
+
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+PrivateDevices=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

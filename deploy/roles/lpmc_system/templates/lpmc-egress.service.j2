@@ -1,0 +1,32 @@
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+[Unit]
+Description=Egress proxy системы LPMC — единственный путь исполнителей во внешнюю сеть
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ lpmc_system_egress_user }}
+Group={{ lpmc_system_egress_user }}
+ExecStart=/usr/bin/node {{ lpmc_system_egress_dir }}/dist/main.js \
+  --config {{ lpmc_system_conf_dir }}/egress.json \
+  --admin-group {{ lpmc_system_egress_admin_group }}
+Restart=on-failure
+RestartSec=5
+
+# Каталог для административного сокета. Режим 0755 у каталога и 0660 у сокета:
+# каталог обязан быть проходим для PACT, а право создавать привязки задаётся
+# группой самого сокета.
+RuntimeDirectory=lpmc-egress
+RuntimeDirectoryMode=0755
+
+# Прокси не нужен доступ ни к чему, кроме своего каталога состояния, где лежат
+# сертификат и приватный ключ собственного удостоверяющего центра.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths={{ lpmc_system_root }}/egress
+
+[Install]
+WantedBy=multi-user.target

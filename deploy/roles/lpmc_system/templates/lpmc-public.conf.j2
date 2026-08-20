@@ -1,0 +1,48 @@
+#
+# Ansible managed (роль lpmc_system)
+#
+# Единственный внешний путь системы: подтверждение необратимых действий и
+# просмотр экрана браузера человеком. Оба — по одноразовым ссылкам, и решение
+# о допуске принимает не nginx, а привратник за ним: одноразовость требует
+# состояния, которого у nginx нет.
+#
+# Отдельный порт, а не путь на основном сайте: система не должна делить имя
+# и журналы с посторонним сайтом, а закрыть порт целиком проще, чем локацию.
+server {
+    listen      {{ lpmc_system_public_port }} ssl;
+    http2       on;
+    server_name {{ lpmc_system_public_domain }};
+
+    ssl_certificate     {{ lpmc_system_public_cert }};
+    ssl_certificate_key {{ lpmc_system_public_cert_key }};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Формат без строки запроса: в пути едет одноразовое значение, и журнал
+    # переживает и сам путь, и сеанс.
+    access_log /var/log/nginx/lpmc-public.access.log noquery;
+    error_log  /var/log/nginx/lpmc-public.error.log;
+
+    # Ничего, кроме двух путей, наружу не отдаётся.
+    location = / { return 404; }
+
+    location {{ lpmc_system_approval_path_prefix }} {
+        proxy_pass http://{{ lpmc_system_approval_listen }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;
+    }
+
+    location {{ lpmc_system_view_path_prefix }} {
+        proxy_pass http://{{ lpmc_system_view_listen }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        # Просмотр экрана идёт по websocket: без этих заголовков соединение
+        # не поднимется, а человек увидит пустую страницу без объяснения.
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout {{ lpmc_system_view_max_seconds }}s;
+    }
+}

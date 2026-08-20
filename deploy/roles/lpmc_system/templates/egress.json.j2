@@ -1,0 +1,9 @@
+{
+  "_комментарий": "Управляется ролью lpmc_system. Правки вручную будут перезаписаны.",
+  "listen": "{{ lpmc_system_egress_listen }}",
+  "admin_socket": "/run/lpmc-egress/admin.sock",
+  "ca_cert": "{{ lpmc_system_root }}/egress/ca.crt",
+  "ca_key": "{{ lpmc_system_root }}/egress/ca.key",
+  "pact_public_key": "{{ lpmc_pact_pubkey.stdout }}",
+  "allow": {{ lpmc_system_egress_allow | to_json }}
+}

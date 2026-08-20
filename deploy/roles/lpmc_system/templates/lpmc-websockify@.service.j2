@@ -1,0 +1,17 @@
+# Мост RFB → WebSocket и раздача noVNC для владельца %i. Управляется ролью lpmc_system.
+[Unit]
+Description=noVNC (websockify) — веб-просмотр экрана владельца %i
+After=lpmc-vnc@%i.service
+BindsTo=lpmc-vnc@%i.service
+
+[Service]
+Type=simple
+User={{ lpmc_system_browser_user }}
+Group={{ lpmc_system_browser_user }}
+# Предельная длительность сеанса задаётся здесь же: просмотр не может длиться
+# дольше решения арбитра, даже если человек забыл закрыть вкладку.
+ExecStart=/usr/bin/timeout --kill-after=5s {{ lpmc_system_view_max_seconds }} \
+  /usr/bin/websockify --web /usr/share/novnc \
+  127.0.0.1:{{ lpmc_system_websockify_port_base }} 127.0.0.1:{{ lpmc_system_vnc_port_base }}
+Restart=no
+SuccessExitStatus=124 143 SIGTERM

@@ -1,0 +1,12 @@
+{
+  "_комментарий": "Управляется ролью lpmc_system. Правки вручную будут перезаписаны.",
+  "listen": "{{ lpmc_system_view_listen }}",
+  "adminSocket": "/run/lpmc-view/admin.sock",
+  "publicPathPrefix": "{{ lpmc_system_view_path_prefix }}",
+  "sessionTtlSeconds": {{ lpmc_system_view_ttl_seconds }},
+  "owners": {
+{% for o in lpmc_system_browser_owners %}
+    "{{ o }}": "127.0.0.1:{{ lpmc_system_websockify_port_base }}"{{ "," if not loop.last }}
+{% endfor %}
+  }
+}

@@ -1,0 +1,31 @@
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+#
+# Шаблонный юнит: %i — имя контура. Один и тот же ретранслятор обслуживает любой
+# контур, потому что механизм у всех один — transactional outbox. Путь к ключу
+# брокера задан в коде самого контура, а не здесь: подмена ключа настройкой юнита
+# означала бы возможность выдать одному контуру права другого.
+[Unit]
+Description=Ретранслятор %i: outbox → NATS JetStream
+After=network-online.target postgresql.service lpmc-nats.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=lpmc-%i
+Group=lpmc-%i
+Environment=LPMC_NATS_SERVER={{ lpmc_system_nats_listen }}
+Environment=LPMC_RELAY_IDLE_MS={{ lpmc_system_relay_idle_ms }}
+ExecStart=/usr/bin/node {{ lpmc_system_app_dir }}/packages/%i/dist/src/relayd.js
+Restart=always
+RestartSec=5
+
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+PrivateDevices=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

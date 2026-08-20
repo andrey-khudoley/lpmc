@@ -1,0 +1,57 @@
+# Правила сетевого запрета системы LPMC. Управляется ролью lpmc_system.
+# Правки вручную будут перезаписаны.
+#
+# СВОЯ таблица, а не правки в таблицу базовой роли nftables: та пересоздаёт свою
+# таблицу на каждом прогоне приёмом «table → delete table → определение», и любые
+# наши строки в ней были бы затёрты. Отдельная таблица работает независимо: если
+# она отбрасывает пакет, разрешение в чужой таблице его не спасёт.
+#
+# Приём «table → delete table → определение» повторён здесь по той же причине:
+# повторное применение файла заменяет нашу таблицу целиком и не затрагивает
+# ни inet main базовой роли, ни f2b-table fail2ban.
+table inet lpmc
+delete table inet lpmc
+
+table inet lpmc {
+  chain output {
+    type filter hook output priority filter + 10;
+    policy accept;
+
+    # ВАЖЕН ПОРЯДОК: правила CDP стоят ДО общего разрешения loopback. Если их
+    # переставить, они станут недостижимы — и будут выглядеть защитой, ею не являясь.
+    # Порт CDP браузера: loopback разрешён всем компонентам, поэтому без этого
+    # правила к браузеру с клиентскими сессиями подключился бы любой из них.
+    # Цепочка output видит uid подключающегося, поэтому ограничение точное.
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_browser_cdp_base }} meta skuid "lpmc-mita" accept comment "CDP: только исполнитель"
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_browser_cdp_base }} meta skuid "{{ lpmc_system_browser_user }}" accept comment "CDP: сам браузер"
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_browser_cdp_base }} counter reject comment "CDP: остальным запрещено"
+
+    # Экран и мост просмотра: к websockify ходит только привратник, к wayvnc —
+    # только сам браузерный пользователь. Без этих правил любой компонент,
+    # которому разрешён loopback, смотрел бы на экран с живыми сессиями клиентов
+    # в обход одноразовой ссылки и решения арбитра.
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_websockify_port_base }} meta skuid "{{ lpmc_system_view_user }}" accept comment "просмотр: только привратник"
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_websockify_port_base }} counter reject comment "просмотр: остальным запрещено"
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_vnc_port_base }} meta skuid "{{ lpmc_system_browser_user }}" accept comment "экран: только браузерный пользователь"
+    ip daddr 127.0.0.1 tcp dport {{ lpmc_system_vnc_port_base }} counter reject comment "экран: остальным запрещено"
+
+    # Локальные обращения разрешены всем компонентам: брокер, СУБД и сам прокси
+    # слушают только loopback, и это единственный путь их взаимодействия.
+    oifname "lo" accept
+    ip daddr 127.0.0.0/8 accept
+    ip6 daddr ::1 accept
+
+    # Единственный, кому разрешён внешний трафик. Всё остальное, включая
+    # обращения к API модели (решение D-026), проходит через него.
+    meta skuid "{{ lpmc_system_egress_user }}" accept comment "egress proxy — единственный путь наружу"
+
+    # Именной случай: Chrome по умолчанию пробует HTTP/3 по UDP, и такой трафик
+    # уходит МИМО HTTP-прокси. Общее правило ниже его тоже поймает, но отдельный
+    # счётчик показывает, происходит ли попытка обхода вообще.
+    meta skuid "{{ lpmc_system_browser_user }}" udp dport 443 counter reject comment "QUIC в обход прокси"
+
+{% for c in lpmc_system_components | selectattr('deployed') | rejectattr('user', 'equalto', lpmc_system_egress_user) %}
+    meta skuid "{{ c.user }}" counter reject comment "{{ c.name }}: наружу только через прокси"
+{% endfor %}
+  }
+}

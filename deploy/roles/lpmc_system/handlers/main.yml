@@ -1,0 +1,45 @@
+---
+- name: Перезапустить PostgreSQL
+  ansible.builtin.systemd_service:
+    name: postgresql
+    state: restarted
+
+- name: Перезапустить NATS
+  ansible.builtin.systemd_service:
+    name: lpmc-nats
+    state: restarted
+
+- name: Перезапустить egress proxy
+  ansible.builtin.systemd_service:
+    name: lpmc-egress
+    state: restarted
+
+- name: Перезапустить браузерные инстансы
+  ansible.builtin.systemd_service:
+    name: "lpmc-browser@{{ item }}"
+    state: restarted
+  loop: "{{ lpmc_system_browser_owners }}"
+
+- name: Перезапустить привратника просмотра
+  ansible.builtin.systemd_service:
+    name: lpmc-view
+    state: restarted
+
+- name: Перезапустить ретрансляторы контуров
+  ansible.builtin.systemd_service:
+    name: "lpmc-relay@{{ item }}"
+    state: restarted
+  loop: "{{ lpmc_system_relay_components }}"
+
+- name: Перезапустить службы контуров
+  ansible.builtin.systemd_service:
+    name: "lpmc-{{ item.contour }}@{{ item.service }}"
+    state: restarted
+  loop: "{{ lpmc_system_contour_services }}"
+  loop_control:
+    label: "lpmc-{{ item.contour }}@{{ item.service }}"
+
+- name: Перечитать конфигурацию nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded

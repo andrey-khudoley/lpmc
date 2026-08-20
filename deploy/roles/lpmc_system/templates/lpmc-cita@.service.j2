@@ -1,0 +1,51 @@
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+#
+# Шаблонный юнит служб контура cita: %i — имя модуля службы. Путь к ключу брокера
+# задан в коде самой службы, а не здесь: разные службы одного контура ходят
+# в брокер под РАЗНЫМИ учётными записями, и подмена ключа настройкой юнита
+# означала бы возможность выдать одной службе права другой.
+[Unit]
+Description=Служба cita: %i
+After=network-online.target postgresql.service lpmc-nats.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=lpmc-cita
+Group=lpmc-cita
+SupplementaryGroups={{ lpmc_system_lease_group }}
+Environment=LPMC_NATS_SERVER={{ lpmc_system_nats_listen }}
+# Прокси терминирует TLS собственным сертификатом, поэтому клиент обязан
+# доверять его удостоверяющему центру. Публичная часть лежит в каталоге
+# конфигурации; приватный ключ остаётся у прокси.
+Environment=NODE_EXTRA_CA_CERTS={{ lpmc_system_conf_dir }}/egress-ca.crt
+# Версия API внешнего интерфейса — часть договора, а не деталь клиента:
+# смена версии меняет форму ответа и потому фиксируется настройкой узла.
+Environment=LPMC_NOTION_VERSION={{ lpmc_system_notion_version }}
+Environment=LPMC_NOTION_TITLE_PROPERTY={{ lpmc_system_notion_title_property }}
+ExecStart=/usr/bin/node {{ lpmc_system_app_dir }}/packages/cita/dist/src/%i.js
+# Каталог в /run для служб, которые слушают unix-сокет. %p — префикс юнита,
+# то есть lpmc-<контур>: каталог называется так же и принадлежит контуру.
+RuntimeDirectory=%p
+RuntimeDirectoryMode=0755
+# Каталог общий для всех служб контура, поэтому его нельзя удалять при остановке
+# одной из них: иначе остановка соседа стирает живой сокет работающей службы,
+# и связь рвётся у того, кого никто не трогал.
+RuntimeDirectoryPreserve=yes
+Restart=always
+RestartSec=5
+
+ProtectSystem=strict
+# Исполнителю нужен на запись СВОЙ каталог состояния: рабочие тетради запусков
+# и хранилище артефактов. Всё остальное дерево остаётся доступным только
+# на чтение — включая каталоги соседних контуров.
+ReadWritePaths={{ lpmc_system_root }}/cita
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+PrivateDevices=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

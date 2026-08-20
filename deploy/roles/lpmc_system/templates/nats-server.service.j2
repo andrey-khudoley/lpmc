@@ -1,0 +1,23 @@
+# Управляется ролью lpmc_system. Правки вручную будут перезаписаны.
+[Unit]
+Description=Брокер событий NATS JetStream системы LPMC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ lpmc_system_nats_user }}
+Group={{ lpmc_system_nats_user }}
+ExecStart=/usr/local/bin/nats-server --config {{ lpmc_system_conf_dir }}/nats-server.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+# Брокеру не нужен доступ к чему-либо, кроме своего каталога потоков.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths={{ lpmc_system_nats_store }}
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+# Экран браузерного инстанса владельца %i по VNC. Управляется ролью lpmc_system.
+[Unit]
+Description=wayvnc — экран браузера владельца %i
+After=lpmc-browser@%i.service
+BindsTo=lpmc-browser@%i.service
+# Поднимается по требованию просмотра и гаснет, когда просмотр больше не нужен:
+# постоянно открытый VNC-порт к живым клиентским сессиям — лишняя поверхность.
+StopWhenUnneeded=yes
+
+[Service]
+Type=simple
+User={{ lpmc_system_browser_user }}
+Group={{ lpmc_system_browser_user }}
+Environment=XDG_RUNTIME_DIR=/run/lpmc-browser
+Environment=WAYLAND_DISPLAY=wayland-0
+ExecStart=/usr/bin/wayvnc 127.0.0.1 {{ lpmc_system_vnc_port_base }}
+Restart=on-failure
+RestartSec=3
