@@ -20,7 +20,8 @@ NODE-LAYOUT.md       раскладка каталогов узла (/var/lib/lp
 (`lpmc_system_src_dir`, по умолчанию — корень репо): синхронизирует его в
 `/usr/local/lib/lpmc`, ставит зависимости (`npm ci`), собирает (`npm run build`)
 и применяет миграции. egress-proxy (`@lpmc/egress`) и привратник просмотра
-(`@lpmc/view`) живут в `packages/` и собираются автономно из того же источника.
+(`@lpmc/view`) — такие же workspaces в `packages/`: они собираются той же общей
+сборкой, а их юниты запускаются из `packages/{egress,view}/dist`.
 
 ## Развёртывание
 
