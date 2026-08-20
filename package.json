@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "description": "Система LPMC: Lina, Pact, Mita, Cita",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "workspaces": [
     "packages/*"

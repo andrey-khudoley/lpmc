@@ -1,0 +1,61 @@
+LPMC Source-Available License — View Only
+All Rights Reserved
+
+Copyright (c) 2026 Andrey Khudoley <andrey@khudoley.pro>
+
+The source code of this project (the "Software") is published for public
+READING and REFERENCE ONLY. All rights are reserved by the copyright holder.
+This is not open-source software and grants no open-source rights.
+
+1. PERMISSION GRANTED
+   You are permitted solely to view and read the Software's source code
+   through the platform on which the copyright holder has published it.
+
+2. NO OTHER RIGHTS
+   No other rights are granted. Without limitation, you may NOT:
+   (a) use, run, execute, host, or deploy the Software, in whole or in
+       part, for any purpose whatsoever — commercial or noncommercial,
+       personal, educational, governmental, or otherwise;
+   (b) copy, download, store, or reproduce the Software beyond the
+       temporary, incidental copies a web browser makes to display the
+       source for viewing;
+   (c) fork, clone, mirror, or otherwise duplicate the Software or its
+       repository;
+   (d) modify, adapt, translate, or create derivative works based on the
+       Software;
+   (e) distribute, publish, transmit, sublicense, sell, rent, lease, or
+       otherwise make the Software available to any third party;
+   (f) remove or alter this License or any copyright, attribution, or
+       proprietary notice.
+
+3. NO IMPLIED LICENSES
+   No copyright license beyond Section 1, and no patent, trademark, or
+   other license, is granted by implication, estoppel, or otherwise. Any
+   use not expressly permitted above requires a separate, prior, written
+   license from the copyright holder.
+
+4. TERMINATION
+   Any breach of this License immediately and automatically terminates the
+   permission granted in Section 1.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+6. NO LIABILITY
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES,
+   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+   ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+
+For licensing inquiries, contact: andrey@khudoley.pro
+
+--------------------------------------------------------------------------------
+Краткое изложение (не имеет юридической силы; преимущество имеет английский текст
+выше). Исходный код опубликован ТОЛЬКО для просмотра. Все права защищены.
+Разрешено единственное — читать код на площадке публикации. Запрещено:
+использовать/запускать, копировать/скачивать, форкать/клонировать, изменять и
+создавать производные, распространять/сублицензировать. Любое иное использование
+— только по отдельному письменному разрешению правообладателя
+(andrey@khudoley.pro).
