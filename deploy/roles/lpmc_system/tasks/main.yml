@@ -639,71 +639,63 @@
     - lpmc-pact
   notify: Перезапустить egress proxy
 
-- name: Создать каталог программы egress proxy
+- name: Создать каталог кода системы
   ansible.builtin.file:
-    path: "{{ lpmc_system_egress_dir }}"
+    path: "{{ lpmc_system_app_dir }}"
     state: directory
     owner: root
     group: root
     mode: "0755"
 
-# Исходники принадлежат root: компонент, работающий под lpmc-egress, не может
-# изменить собственный код. Сборка выполняется от root, запуск — от компонента.
-#
-# Источник — пакет @lpmc/egress единого репозитория ({{ lpmc_system_src_dir }}).
-# Прежде исходники лежали внутри роли (files/egress); после свед'ния кода,
-# документации и развёртывания в один репозиторий они живут в packages/egress
-# рядом с контурами и собираются автономно (собственный package-lock.json).
-- name: Разложить исходники egress proxy
+# --no-owner/--no-group намеренно: с ключом -a rsync перенёс бы владельца рабочей
+# копии, и непривилегированный пользователь смог бы менять код, исполняемый от
+# имени арбитра. Каталоги сборки и зависимостей исключены — они собираются здесь.
+- name: Выложить код системы
   ansible.builtin.command:
     cmd: >-
       /usr/bin/rsync -rlpt --delete --itemize-changes
       --no-owner --no-group --chmod=D755,F644
-      --exclude node_modules --exclude dist
-      {{ lpmc_system_src_dir }}/packages/egress/ {{ lpmc_system_egress_dir }}/
-  register: lpmc_egress_src
-  changed_when: lpmc_egress_src.stdout | length > 0
+      --exclude node_modules --exclude dist --exclude .git
+      {{ lpmc_system_src_dir }}/ {{ lpmc_system_app_dir }}/
+  register: lpmc_code_sync
+  changed_when: lpmc_code_sync.stdout | length > 0
 
-- name: Проверить наличие собранной программы
+- name: Проверить наличие установленных зависимостей
   ansible.builtin.stat:
-    path: "{{ lpmc_system_egress_dir }}/dist/main.js"
-  register: lpmc_egress_dist
+    path: "{{ lpmc_system_app_dir }}/node_modules"
+  register: lpmc_node_modules
 
 # npm ci, а не npm install: состав зависимостей берётся из package-lock.json
-# и не может тихо разъехаться между узлами.
-- name: Установить зависимости egress proxy
+# без права его изменить. Иначе выкладка могла бы молча подтянуть другую версию,
+# и узел перестал бы соответствовать проверенному состоянию.
+- name: Установить зависимости
   ansible.builtin.command:
-    cmd: npm ci --no-audit --no-fund
-    chdir: "{{ lpmc_system_egress_dir }}"
-  when: lpmc_egress_src.changed or not lpmc_egress_dist.stat.exists
+    cmd: /usr/bin/npm ci --no-audit --no-fund
+    chdir: "{{ lpmc_system_app_dir }}"
+  when: lpmc_code_sync.changed or not lpmc_node_modules.stat.exists
   changed_when: true
 
-# Сборка со строгой типизацией и noEmitOnError: сломанная типизация не доезжает
-# до узла молча — это записано в D-025 как требование ко всем компонентам.
-- name: Собрать egress proxy
+- name: Проверить наличие сборки
+  ansible.builtin.stat:
+    path: "{{ lpmc_system_app_dir }}/packages/pact/dist/src/relayd.js"
+  register: lpmc_build_output
+
+- name: Собрать код системы
   ansible.builtin.command:
-    cmd: npx tsc -p tsconfig.json
-    chdir: "{{ lpmc_system_egress_dir }}"
-  when: lpmc_egress_src.changed or not lpmc_egress_dist.stat.exists
+    # Именно корневой скрипт, а не «--workspaces»: пакеты собираются в порядке
+    # зависимостей (contracts → runtime → контуры), а «--workspaces» обходит их
+    # по алфавиту и роняет сборку на первом же пакете, чья зависимость не собрана.
+    cmd: /usr/bin/npm run build
+    chdir: "{{ lpmc_system_app_dir }}"
+  when: lpmc_code_sync.changed or not lpmc_build_output.stat.exists
   changed_when: true
-  notify: Перезапустить egress proxy
 
-# Тесты выполняются до выкатки по той же причине, по которой сборка идёт с
-# noEmitOnError: неработающее не доезжает до узла молча. Место именно здесь —
-# следующая задача удаляет инструменты сборки, без которых тесты не запустятся.
-- name: Проверить egress proxy тестами
+# Сборка кладёт dist с umask root; открываем на чтение всем, потому что читать
+# код будут службы под своими пользователями. Право записи остаётся у root.
+- name: Открыть код на чтение компонентам
   ansible.builtin.command:
-    cmd: npm test
-    chdir: "{{ lpmc_system_egress_dir }}"
-  when: lpmc_egress_src.changed or not lpmc_egress_dist.stat.exists
-  changed_when: false
-
-# Инструменты сборки на узле не нужны: остаётся только то, что требуется в работе.
-- name: Удалить зависимости сборки
-  ansible.builtin.command:
-    cmd: npm prune --omit=dev --no-audit --no-fund
-    chdir: "{{ lpmc_system_egress_dir }}"
-  when: lpmc_egress_src.changed or not lpmc_egress_dist.stat.exists
+    cmd: /usr/bin/chmod -R a+rX {{ lpmc_system_app_dir }}
+  when: lpmc_code_sync.changed or not lpmc_build_output.stat.exists
   changed_when: true
 
 - name: Положить конфигурацию egress proxy
@@ -733,6 +725,12 @@
     name: lpmc-egress
     enabled: true
     state: started
+
+- name: Перезапустить egress proxy при смене кода
+  ansible.builtin.systemd_service:
+    name: lpmc-egress
+    state: restarted
+  when: lpmc_code_sync.changed
 
 - name: Применить отложенные перезапуски egress proxy
   ansible.builtin.meta: flush_handlers
@@ -1209,56 +1207,6 @@
     - lpmc-pact
   notify: Перезапустить привратника просмотра
 
-- name: Создать каталог программы привратника
-  ansible.builtin.file:
-    path: "{{ lpmc_system_view_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-# Источник — пакет @lpmc/view единого репозитория ({{ lpmc_system_src_dir }}).
-# Прежде исходники лежали внутри роли (files/view); теперь — в packages/view
-# рядом с контурами (см. комментарий у исходников egress proxy выше).
-- name: Разложить исходники привратника
-  ansible.builtin.command:
-    cmd: >-
-      /usr/bin/rsync -rlpt --delete --itemize-changes
-      --no-owner --no-group --chmod=D755,F644
-      --exclude node_modules --exclude dist
-      {{ lpmc_system_src_dir }}/packages/view/ {{ lpmc_system_view_dir }}/
-  register: lpmc_view_src
-  changed_when: lpmc_view_src.stdout | length > 0
-
-- name: Проверить наличие собранного привратника
-  ansible.builtin.stat:
-    path: "{{ lpmc_system_view_dir }}/dist/main.js"
-  register: lpmc_view_dist
-
-- name: Установить зависимости сборки привратника
-  ansible.builtin.command:
-    cmd: npm install --no-audit --no-fund
-    chdir: "{{ lpmc_system_view_dir }}"
-  when: lpmc_view_src.changed or not lpmc_view_dist.stat.exists
-  changed_when: true
-
-- name: Собрать привратника
-  ansible.builtin.command:
-    cmd: npx tsc -p tsconfig.json
-    chdir: "{{ lpmc_system_view_dir }}"
-  when: lpmc_view_src.changed or not lpmc_view_dist.stat.exists
-  changed_when: true
-  notify: Перезапустить привратника просмотра
-
-# У привратника нет зависимостей времени выполнения — только стандартная
-# библиотека Node. Инструменты сборки на узле не нужны.
-- name: Удалить зависимости сборки привратника
-  ansible.builtin.command:
-    cmd: npm prune --omit=dev --no-audit --no-fund
-    chdir: "{{ lpmc_system_view_dir }}"
-  when: lpmc_view_src.changed or not lpmc_view_dist.stat.exists
-  changed_when: true
-
 - name: Положить конфигурацию привратника
   ansible.builtin.template:
     src: view.json.j2
@@ -1301,6 +1249,12 @@
     name: lpmc-view
     enabled: true
     state: started
+
+- name: Перезапустить привратника при смене кода
+  ansible.builtin.systemd_service:
+    name: lpmc-view
+    state: restarted
+  when: lpmc_code_sync.changed
 
 - name: Применить отложенные перезапуски привратника
   ansible.builtin.meta: flush_handlers
@@ -1521,68 +1475,6 @@
     - lpmc-pact
     - lpmc-lina
 
-- name: Создать каталог кода системы
-  ansible.builtin.file:
-    path: "{{ lpmc_system_app_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-# --no-owner/--no-group намеренно: с ключом -a rsync перенёс бы владельца рабочей
-# копии, и непривилегированный пользователь смог бы менять код, исполняемый от
-# имени арбитра. Каталоги сборки и зависимостей исключены — они собираются здесь.
-- name: Выложить код системы
-  ansible.builtin.command:
-    cmd: >-
-      /usr/bin/rsync -rlpt --delete --itemize-changes
-      --no-owner --no-group --chmod=D755,F644
-      --exclude node_modules --exclude dist --exclude .git
-      {{ lpmc_system_src_dir }}/ {{ lpmc_system_app_dir }}/
-  register: lpmc_code_sync
-  changed_when: lpmc_code_sync.stdout | length > 0
-
-- name: Проверить наличие установленных зависимостей
-  ansible.builtin.stat:
-    path: "{{ lpmc_system_app_dir }}/node_modules"
-  register: lpmc_node_modules
-
-# npm ci, а не npm install: состав зависимостей берётся из package-lock.json
-# без права его изменить. Иначе выкладка могла бы молча подтянуть другую версию,
-# и узел перестал бы соответствовать проверенному состоянию.
-- name: Установить зависимости
-  ansible.builtin.command:
-    cmd: /usr/bin/npm ci --no-audit --no-fund
-    chdir: "{{ lpmc_system_app_dir }}"
-  when: lpmc_code_sync.changed or not lpmc_node_modules.stat.exists
-  changed_when: true
-
-- name: Проверить наличие сборки
-  ansible.builtin.stat:
-    path: "{{ lpmc_system_app_dir }}/packages/pact/dist/src/relayd.js"
-  register: lpmc_build_output
-
-- name: Собрать код системы
-  ansible.builtin.command:
-    # Именно корневой скрипт, а не «--workspaces»: пакеты собираются в порядке
-    # зависимостей (contracts → runtime → контуры), а «--workspaces» обходит их
-    # по алфавиту и роняет сборку на первом же пакете, чья зависимость не собрана.
-    cmd: /usr/bin/npm run build
-    chdir: "{{ lpmc_system_app_dir }}"
-  when: lpmc_code_sync.changed or not lpmc_build_output.stat.exists
-  changed_when: true
-  notify:
-    - Перезапустить ретрансляторы контуров
-    - Перезапустить службы контуров
-
-# Сборка кладёт dist с umask root; открываем на чтение всем, потому что читать
-# код будут службы под своими пользователями. Право записи остаётся у root.
-- name: Открыть код на чтение компонентам
-  ansible.builtin.command:
-    cmd: /usr/bin/chmod -R a+rX {{ lpmc_system_app_dir }}
-  when: lpmc_code_sync.changed or not lpmc_build_output.stat.exists
-  changed_when: true
-
 # Миграции применяет сам арбитр, под своим пользователем: схема принадлежит ему,
 # и никакой другой принципал не должен уметь её менять. Peer-аутентификация
 # делает это свойство проверяемым — подменить имя нельзя.
@@ -1697,6 +1589,22 @@
   loop: "{{ lpmc_system_contour_services }}"
   loop_control:
     label: "lpmc-{{ item.contour }}@{{ item.service }}"
+
+- name: Перезапустить ретрансляторы контуров при смене кода
+  ansible.builtin.systemd_service:
+    name: "lpmc-relay@{{ item }}"
+    state: restarted
+  loop: "{{ lpmc_system_relay_components }}"
+  when: lpmc_code_sync.changed
+
+- name: Перезапустить службы контуров при смене кода
+  ansible.builtin.systemd_service:
+    name: "lpmc-{{ item.contour }}@{{ item.service }}"
+    state: restarted
+  loop: "{{ lpmc_system_contour_services }}"
+  loop_control:
+    label: "lpmc-{{ item.contour }}@{{ item.service }}"
+  when: lpmc_code_sync.changed
 
 - name: Применить отложенные перезапуски служб контуров
   ansible.builtin.meta: flush_handlers

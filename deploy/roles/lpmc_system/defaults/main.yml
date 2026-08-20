@@ -277,7 +277,7 @@ lpmc_system_broker_users:
 # без собственного ICAP-сервиса; mitmproxy умеет всё, но тянет venv и 27 пакетов
 # из PyPI в тракт данных.
 lpmc_system_egress_user: lpmc-egress
-lpmc_system_egress_dir: /usr/local/lib/lpmc-egress
+lpmc_system_egress_dir: "{{ lpmc_system_app_dir }}/packages/egress"
 lpmc_system_egress_listen: "127.0.0.1:3128"
 lpmc_system_pact_signing_key: "{{ lpmc_system_root }}/pact/keys/pact-signing.key"
 # Группа административного сокета: в неё входят только прокси (чтобы выставить
@@ -343,7 +343,7 @@ lpmc_system_browser_owners:
 # на чужую непривилегированный процесс не может.
 lpmc_system_view_user: lpmc-view
 lpmc_system_view_admin_group: lpmc-view-admin
-lpmc_system_view_dir: /usr/local/lib/lpmc-view
+lpmc_system_view_dir: "{{ lpmc_system_app_dir }}/packages/view"
 # --- Подтверждение необратимых действий (W2) ------------------------------------
 #
 # Доверенный путь подтверждения: nginx отдаёт наружу один фиксированный путь
