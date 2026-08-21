@@ -238,8 +238,20 @@
         return;
       }
       if (w.kind === "endpoint") {
-        await jx("admin/allow", "POST", { owner: w.owner || "internal", host: w.host, methods: csv(w.methods), paths: csv(w.paths), op: w.op || "auto" });
-        this.toast("готово", "эндпоинт разрешён"); this.setState({ wizard: null }); await this.loadAdmin();
+        // Мастер трёхшаговый: «Далее» продвигает шаги, POST — только на последнем.
+        const setW = (patch) => this.setState((s) => ({ wizard: Object.assign({}, s.wizard, patch) }));
+        if (w.step === 1) {
+          if (!/^[a-z0-9.-]+$/i.test(w.host || "")) { setW({ err: "хост: латиница, цифры, точки, дефис" }); return; }
+          setW({ step: 2, err: null }); return;
+        }
+        if (w.step === 2) {
+          if (!w.methods || !w.methods.length) { setW({ err: "выберите хотя бы один метод" }); return; }
+          setW({ step: 3, err: null }); return;
+        }
+        // methods — уже массив (мультивыбор); paths — строка, её и разбираем в список.
+        await jx("admin/allow", "POST", { owner: w.owner || "internal", host: w.host, methods: w.methods, paths: csv(w.paths), op: w.op || "auto" });
+        this.toast("готово", "эндпоинт " + w.host + " разрешён"); this.setState({ wizard: null }); await this.loadAdmin();
+        return;
       } else if (w.kind === "secret") {
         this.toast("секрет", "значение вносится консолью lpmc-admin (мастер-ключ на веб не выносится)"); this.setState({ wizard: null });
       }

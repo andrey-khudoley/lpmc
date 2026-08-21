@@ -1373,7 +1373,7 @@ class Component extends DCLogic {
 
   openWizard(kind) {
     const w = kind === 'endpoint'
-      ? { kind, step: 1, total: 3, owner: 'acme-school', host: '', methods: [], paths: '', op: 'auto' }
+      ? { kind, step: 1, total: 3, owner: (this.state.realOwners && this.state.realOwners[0]) || 'internal', host: '', methods: [], paths: '', op: 'auto' }
       : kind === 'client'
       ? { kind, step: 1, total: 1, slug: '', category: 'client' }
       : kind === 'rule'
