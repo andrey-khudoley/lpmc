@@ -1,0 +1,18 @@
+[Unit]
+Description=LPMC LLM-мост подписки — исполняет вызов модели на машине с логином Claude (/login)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ lpmc_system_llm_bridge_user }}
+Environment=LPMC_CLAUDE_CREDENTIALS={{ lpmc_system_claude_credentials }}
+Environment=LPMC_LLM_BRIDGE_PORT={{ lpmc_system_llm_bridge_port }}
+ExecStart=/usr/bin/node {{ lpmc_system_app_dir }}/bin/lpmc-llm-bridge.mjs
+Restart=on-failure
+RestartSec=5
+# Только loopback наружу не смотрит; доступ — веб-сервису на 127.0.0.1.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

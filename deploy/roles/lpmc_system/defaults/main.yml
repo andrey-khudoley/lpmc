@@ -412,6 +412,15 @@ lpmc_system_web_login: "andrey@khudoley.pro"
 # lpmc_system_web_password — задаётся extra-vars (в git не хранится, как и домен/сертификаты).
 lpmc_system_app_dir: /usr/local/lib/lpmc
 
+# LLM-мост подписки: исполняет вызов модели на машине процессом с логином Claude
+# (/login), веб к нему проксирует и токен не хранит. Пользователь — тот, у кого
+# сделан /login (окружение-специфично); на чистой машине без логина мост просто
+# отвечает «нет логина», и работает фейловер на ключи Anthropic/OpenAI.
+lpmc_system_llm_bridge_enabled: true
+lpmc_system_llm_bridge_user: agent
+lpmc_system_llm_bridge_port: 6210
+lpmc_system_claude_credentials: "/home/{{ lpmc_system_llm_bridge_user }}/.claude/.credentials.json"
+
 # Пауза между проходами ретранслятора, когда отправлять нечего. Опрос, а не
 # подписка на уведомления базы: канал уведомлений теряет события при разрыве
 # соединения, и такая потеря была бы тихой. Опрос же не может «забыть» строку —

@@ -1,5 +1,25 @@
 import type pg from "pg";
 import https from "node:https";
+import http from "node:http";
+
+// Мост подписки: вызов исполняется НА МАШИНЕ процессом с логином (/login), веб
+// лишь проксирует сюда — токен в веб/БД не попадает.
+const BRIDGE_URL = process.env["LPMC_LLM_BRIDGE"] ?? "http://127.0.0.1:6210/complete";
+
+function bridge(model: string, system: string, user: string): Promise<{ ok: boolean; text?: string; error?: string }> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(BRIDGE_URL);
+    const data = Buffer.from(JSON.stringify({ model, system, user }));
+    const req = http.request({ host: u.hostname, port: u.port || 80, path: u.pathname, method: "POST", timeout: 50000,
+      headers: { "content-type": "application/json", "content-length": data.length } }, (res) => {
+      const c: Buffer[] = []; res.on("data", (x: Buffer) => c.push(x));
+      res.on("end", () => { try { resolve(JSON.parse(Buffer.concat(c).toString())); } catch (e) { reject(e); } });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("мост недоступен (timeout)")));
+    req.end(data);
+  });
+}
 
 /**
  * Провайдеры модели с фейловером по приоритету.
@@ -11,11 +31,27 @@ import https from "node:https";
 
 export interface ProviderView {
   id: string; kind: string; enabled: boolean; model: string; priority: number; has_key: boolean;
+  bridge_ok?: boolean; login_ok?: boolean;
+}
+
+function bridgeHealth(): Promise<{ ok: boolean; hasLogin: boolean }> {
+  return new Promise((resolve) => {
+    const u = new URL(BRIDGE_URL.replace(/\/complete$/, "/health"));
+    const req = http.request({ host: u.hostname, port: u.port || 80, path: u.pathname, method: "GET", timeout: 1500 }, (res) => {
+      const c: Buffer[] = []; res.on("data", (x: Buffer) => c.push(x));
+      res.on("end", () => { try { const j = JSON.parse(Buffer.concat(c).toString()); resolve({ ok: !!j.ok, hasLogin: !!j.hasLogin }); } catch { resolve({ ok: false, hasLogin: false }); } });
+    });
+    req.on("error", () => resolve({ ok: false, hasLogin: false }));
+    req.on("timeout", () => { req.destroy(); resolve({ ok: false, hasLogin: false }); });
+    req.end();
+  });
 }
 
 export async function listProviders(pool: pg.Pool): Promise<{ providers: ProviderView[] }> {
   const r = await pool.query<ProviderView>(
     "SELECT id, kind, enabled, model, priority, (api_key <> '') AS has_key FROM web_llm_providers ORDER BY priority, id");
+  const sub = r.rows.find((p) => p.kind === "subscription");
+  if (sub) { const h = await bridgeHealth(); sub.bridge_ok = h.ok; sub.login_ok = h.hasLogin; }
   return { providers: r.rows };
 }
 
@@ -39,7 +75,8 @@ export async function clearKey(pool: pg.Pool, id: number): Promise<void> {
 }
 
 export async function anyEnabled(pool: pg.Pool): Promise<boolean> {
-  const r = await pool.query<{ n: string }>("SELECT count(*) AS n FROM web_llm_providers WHERE enabled = true AND api_key <> ''");
+  const r = await pool.query<{ n: string }>(
+    "SELECT count(*) AS n FROM web_llm_providers WHERE enabled = true AND (kind = 'subscription' OR api_key <> '')");
   return Number(r.rows[0]?.n ?? 0) > 0;
 }
 
@@ -69,6 +106,12 @@ function post(host: string, path: string, headers: Record<string, string>, body:
 }
 
 async function callProvider(kind: string, model: string, key: string, system: string, user: string): Promise<string> {
+  if (kind === "subscription") {
+    // Токен не хранится в вебе — вызов исполняет мост на машине (там логин /login).
+    const r = await bridge(model, system, user);
+    if (!r.ok || !r.text) throw new Error(r.error || "subscription: мост вернул пусто");
+    return r.text;
+  }
   if (kind === "openai") {
     const { status, json } = await post("api.openai.com", "/v1/chat/completions",
       { Authorization: `Bearer ${key}`, "content-type": "application/json" },
@@ -101,7 +144,8 @@ export async function complete(pool: pg.Pool, system: string, user: string): Pro
     "SELECT kind, model, api_key FROM web_llm_providers WHERE enabled = true ORDER BY priority, id");
   const errors: string[] = [];
   for (const p of r.rows) {
-    if (!p.api_key) { errors.push(`${p.kind}: ключ не задан`); continue; }
+    // Подписка ключа в вебе не требует — токен даёт мост машины.
+    if (p.kind !== "subscription" && !p.api_key) { errors.push(`${p.kind}: ключ не задан`); continue; }
     if (!p.model) { errors.push(`${p.kind}: модель не выбрана`); continue; }
     try {
       const text = await callProvider(p.kind, p.model, p.api_key, system, user);

@@ -68,7 +68,7 @@
       const [sv, se, ap, ow, tt, lm] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners"), jx("tasktypes"), jx("admin/llm")]);
       const stateLabel = (s) => s === "approved" ? "подтверждено" : s === "denied" ? "отказано" : s === "pending" ? "ожидает" : s;
       this.setState({
-        llmProviders: (lm.providers || []).map((p) => ({ id: p.id, kind: p.kind, enabled: p.enabled, model: p.model, priority: p.priority, has_key: p.has_key })),
+        llmProviders: (lm.providers || []).map((p) => ({ id: p.id, kind: p.kind, enabled: p.enabled, model: p.model, priority: p.priority, has_key: p.has_key, bridge_ok: p.bridge_ok, login_ok: p.login_ok })),
         taskTypes: (tt.types || []).map((t) => ({ id: t.id, name: t.name, keywords: t.keywords, executor: t.executor, clarify: t.clarify, dod_template: t.dod_template })),
         // Для выбора владельца в мастерах — только действующие: архивный лишён
         // правил и привязок, обращение к нему получило бы отказ на валидации.

@@ -878,7 +878,8 @@
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);width:18px;">#{{ p.priority }}</span>
                   <span onClick="{{ p.onToggle }}" style="{{ p.enabledStyle }}" title="включить/выключить">{{ p.enabledMark }}</span>
                   <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;">{{ p.label }}</span>
-                  <span style="{{ p.keyStatusStyle }}">{{ p.keyStatus }}</span>
+                  <sc-if value="{{ p.notSub }}" hint-placeholder-val="{{ true }}"><span style="{{ p.keyStatusStyle }}">{{ p.keyStatus }}</span></sc-if>
+                  <sc-if value="{{ p.isSub }}" hint-placeholder-val="{{ false }}"><span style="{{ p.bridgeStyle }}">{{ p.bridgeShort }}</span></sc-if>
                   <span style="flex:1;"></span>
                   <span onClick="{{ p.onUp }}" style="{{ p.upStyle }}" title="выше">▲</span>
                   <span onClick="{{ p.onDown }}" style="{{ p.downStyle }}" title="ниже">▼</span>
@@ -888,12 +889,17 @@
                   <input value="{{ p.model }}" onInput="{{ p.onModel }}" placeholder="имя модели" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:8px 10px;font-family:'JetBrains Mono',monospace;">
                   <span onClick="{{ p.onSaveModel }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:8px 12px;font-size:11.5px;" style-hover="border-color:var(--fg3)">Сохранить</span>
                 </div>
+                <sc-if value="{{ p.notSub }}" hint-placeholder-val="{{ true }}">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);width:70px;">ключ</span>
                   <input value="{{ p.keyDraft }}" onInput="{{ p.onKey }}" type="password" placeholder="{{ p.keyPlaceholder }}" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:8px 10px;font-family:'JetBrains Mono',monospace;">
                   <span onClick="{{ p.onSaveKey }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:8px 12px;font-size:11.5px;font-weight:600;" style-hover="filter:brightness(1.08)">Сохранить ключ</span>
                   <span onClick="{{ p.onClearKey }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">убрать</span>
                 </div>
+                </sc-if>
+                <sc-if value="{{ p.isSub }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ p.bridgeStyle }}">{{ p.bridgeNote }}</span>
+                </sc-if>
                 <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);line-height:1.6;">{{ p.hint }}</span>
               </div>
             </sc-for>
@@ -1849,15 +1855,22 @@ class Component extends DCLogic {
     // ── провайдеры модели (LLM с фейловером по приоритету)
     const llmProviders = s.llmProviders || [];
     const kindLabel = { subscription: 'По подписке · OAuth', anthropic: 'Anthropic API', openai: 'OpenAI API' };
-    const kindHint = { subscription: 'токен подписки Claude (протухает — тогда сработает фейловер)', anthropic: 'ключ sk-ant-…', openai: 'ключ sk-… OpenAI' };
+    const kindHint = { subscription: 'вызов исполняется на машине через /login; ключ вводить не нужно, токен в веб не попадает', anthropic: 'ключ sk-ant-…', openai: 'ключ sk-… OpenAI' };
     const swap = (a, i, j) => { const b = a.slice(); const t = b[i]; b[i] = b[j]; b[j] = t; return b; };
     const setDraft = (id, patch) => this.setState(st => ({ llmDraft: Object.assign({}, st.llmDraft, { [id]: Object.assign({}, (st.llmDraft || {})[id], patch) }) }));
     const ids = llmProviders.map(p => p.id);
     const providerRows = llmProviders.map((p, i) => {
       const d = (s.llmDraft && s.llmDraft[p.id]) || {};
       const model = d.model !== undefined ? d.model : p.model;
+      const bridgeNote = p.kind === 'subscription'
+        ? (p.bridge_ok ? (p.login_ok ? 'вызов исполняется на машине · логин /login активен · токен в веб не попадает'
+            : 'мост на машине запущен, но логина нет — сделайте /login на машине')
+          : 'мост на машине не запущен (lpmc-llm-bridge)')
+        : '';
       return { id: p.id, kind: p.kind, label: kindLabel[p.kind] || p.kind, hint: kindHint[p.kind] || '',
-        priority: String(i + 1), isSub: p.kind === 'subscription',
+        priority: String(i + 1), isSub: p.kind === 'subscription', notSub: p.kind !== 'subscription',
+        bridgeNote, bridgeStyle: this.chip((p.bridge_ok && p.login_ok) ? 'var(--ok)' : 'var(--warn)'),
+        bridgeShort: p.kind === 'subscription' ? (p.bridge_ok && p.login_ok ? 'через машину · /login' : 'мост/логин недоступен') : '',
         enabled: p.enabled, enabledMark: p.enabled ? '☑' : '☐',
         enabledStyle: 'cursor:pointer;font-size:17px;line-height:1;color:' + (p.enabled ? 'var(--accent)' : 'var(--fg3)') + ';',
         onToggle: () => this.llmUpdate(p.id, { enabled: !p.enabled }),

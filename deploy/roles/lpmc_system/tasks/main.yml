@@ -2357,5 +2357,39 @@
     state: restarted
   when: lpmc_code_sync.changed
 
+# --- LLM-мост подписки (исполняет вызов модели на машине с логином Claude) ------
+- name: Установить каталог bin приложения
+  become: true
+  ansible.builtin.file:
+    path: "{{ lpmc_system_app_dir }}/bin"
+    state: directory
+    mode: "0755"
+  when: lpmc_system_llm_bridge_enabled | bool
+
+- name: Положить скрипт LLM-моста
+  become: true
+  ansible.builtin.copy:
+    src: lpmc-llm-bridge.mjs
+    dest: "{{ lpmc_system_app_dir }}/bin/lpmc-llm-bridge.mjs"
+    mode: "0755"
+  when: lpmc_system_llm_bridge_enabled | bool
+
+- name: Положить юнит LLM-моста
+  become: true
+  ansible.builtin.template:
+    src: lpmc-llm-bridge.service.j2
+    dest: /etc/systemd/system/lpmc-llm-bridge.service
+    mode: "0644"
+  when: lpmc_system_llm_bridge_enabled | bool
+
+- name: Включить и запустить LLM-мост
+  become: true
+  ansible.builtin.systemd_service:
+    name: lpmc-llm-bridge
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: lpmc_system_llm_bridge_enabled | bool
+
 - name: Применить отложенное перечитывание apache
   ansible.builtin.meta: flush_handlers
