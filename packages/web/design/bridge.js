@@ -100,6 +100,7 @@
     this.loadAdmin();
     this.loadInbox();
     this.loadAdminInbox();
+    this.loadModels();
     this.__poll = setInterval(() => {
       const t = (this.state.tasks || []).find((x) => x.id === this.state.selectedTask);
       if (t && t.status === "doing" && this.live) this.loadAll(this.state.selectedTask);
@@ -242,6 +243,10 @@
     await this.loadAdmin();
   };
 
+  P.loadModels = async function () {
+    try { const r = await jx("admin/llm/models"); this.setState({ llmModels: { anthropic: r.anthropic || [], openai: r.openai || [] } }); }
+    catch (e) { /* каталог не критичен — останется текущая модель */ }
+  };
   P.llmUpdate = async function (id, patch) {
     try { await jx("admin/llm/" + id, "POST", patch); } catch (e) { this.toast("ошибка", e.message); }
     await this.loadAdmin();

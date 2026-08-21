@@ -29,6 +29,64 @@ function bridge(model: string, system: string, user: string): Promise<{ ok: bool
  * наружу не отдаются — только признак «задан».
  */
 
+// ---- Каталог моделей (внешний источник models.dev: id + цены) --------------
+
+export interface ModelInfo { id: string; name: string; in_price: number | null; out_price: number | null; label: string }
+
+function fetchJson(host: string, path: string): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const req = https.request({ host, path, method: "GET", timeout: 20000,
+      headers: { "user-agent": "Mozilla/5.0 (LPMC model-catalog)", accept: "application/json" } }, (res) => {
+      const c: Buffer[] = []; res.on("data", (x: Buffer) => c.push(x));
+      res.on("end", () => { try { resolve(JSON.parse(Buffer.concat(c).toString())); } catch (e) { reject(e); } });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.end();
+  });
+}
+
+// Популярность: models.dev её не даёт, поэтому курируем порядок флагманов.
+const ORDER: Record<string, string[]> = {
+  anthropic: ["claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-haiku", "claude-opus", "claude-sonnet"],
+  openai: ["gpt-5.3-chat", "gpt-5.1-chat", "gpt-5-chat", "gpt-5", "gpt-5-pro", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o4-mini", "o3", "o1"],
+};
+const OPENAI_EXCLUDE = /image|embedding|tts|whisper|audio|realtime|moderation|dall-e|sora|transcribe|search|codex|computer|guardrail/i;
+
+function rankOf(id: string, order: string[]): number {
+  const exact = order.indexOf(id);
+  if (exact >= 0) return exact;
+  for (let i = 0; i < order.length; i++) if (id.includes(order[i]!)) return i;
+  return order.length + 1;
+}
+
+let catalogCache: { at: number; data: { anthropic: ModelInfo[]; openai: ModelInfo[] } } | null = null;
+
+async function buildCatalog(): Promise<{ anthropic: ModelInfo[]; openai: ModelInfo[] }> {
+  const d = await fetchJson("models.dev", "/api.json");
+  const pick = (prov: string, exclude?: RegExp): ModelInfo[] => {
+    const models = ((d[prov] as { models?: Record<string, { name?: string; cost?: { input?: number; output?: number } }> } | undefined)?.models) ?? {};
+    const arr = Object.keys(models).filter((id) => {
+      if (exclude && exclude.test(id)) return false;
+      return models[id]?.cost?.input != null; // только модели с токенной ценой (текстовые)
+    }).map((id): ModelInfo => {
+      const m = models[id]!; const ci = m.cost?.input ?? null, co = m.cost?.output ?? null;
+      const price = ci != null && co != null ? ` · $${ci}/$${co} за 1M` : "";
+      return { id, name: m.name ?? id, in_price: ci, out_price: co, label: `${m.name ?? id}${price}` };
+    });
+    arr.sort((a, b) => { const ra = rankOf(a.id, ORDER[prov] ?? []), rb = rankOf(b.id, ORDER[prov] ?? []); return ra !== rb ? ra - rb : a.id.localeCompare(b.id); });
+    return arr;
+  };
+  return { anthropic: pick("anthropic"), openai: pick("openai", OPENAI_EXCLUDE) };
+}
+
+export async function listModels(): Promise<{ anthropic: ModelInfo[]; openai: ModelInfo[] }> {
+  const now = Date.now();
+  if (catalogCache && now - catalogCache.at < 6 * 3600 * 1000) return catalogCache.data;
+  try { const data = await buildCatalog(); catalogCache = { at: now, data }; return data; }
+  catch { return catalogCache?.data ?? { anthropic: [], openai: [] }; }
+}
+
 export interface ProviderView {
   id: string; kind: string; enabled: boolean; model: string; priority: number; has_key: boolean;
   bridge_ok?: boolean; login_ok?: boolean;

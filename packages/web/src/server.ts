@@ -98,6 +98,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
 
   // ---- Провайдеры модели (LLM с фейловером) ----
   if (path === "/api/admin/llm" && m === "GET") return json(res, 200, await llm.listProviders(pool));
+  if (path === "/api/admin/llm/models" && m === "GET") return json(res, 200, await llm.listModels());
   if (path === "/api/admin/llm/reorder" && m === "POST") { await llm.reorder(pool, arr(body["ids"]).map(Number)); return json(res, 200, { ok: true }); }
   if (seg[0] === "api" && seg[1] === "admin" && seg[2] === "llm" && seg[3] && seg[4] === "clear" && m === "POST") { await llm.clearKey(pool, Number(seg[3])); return json(res, 200, { ok: true }); }
   if (seg[0] === "api" && seg[1] === "admin" && seg[2] === "llm" && seg[3] && m === "POST") {

@@ -886,8 +886,11 @@
                 </div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);width:70px;">модель</span>
-                  <input value="{{ p.model }}" onInput="{{ p.onModel }}" placeholder="имя модели" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:8px 10px;font-family:'JetBrains Mono',monospace;">
-                  <span onClick="{{ p.onSaveModel }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:8px 12px;font-size:11.5px;" style-hover="border-color:var(--fg3)">Сохранить</span>
+                  <select value="{{ p.model }}" onChange="{{ p.onModelSelect }}" style="flex:1;min-width:240px;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:8px 10px;font-family:'JetBrains Mono',monospace;">
+                    <sc-for list="{{ p.modelOptions }}" as="m" hint-placeholder-count="6">
+                      <option value="{{ m.id }}">{{ m.label }}</option>
+                    </sc-for>
+                  </select>
                 </div>
                 <sc-if value="{{ p.notSub }}" hint-placeholder-val="{{ true }}">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -1876,6 +1879,13 @@ class Component extends DCLogic {
         onToggle: () => this.llmUpdate(p.id, { enabled: !p.enabled }),
         model, onModel: e => setDraft(p.id, { model: e.target.value }),
         onSaveModel: () => this.llmUpdate(p.id, { model: (d.model !== undefined ? d.model : p.model) }),
+        modelOptions: (() => {
+          const fam = p.kind === 'openai' ? 'openai' : 'anthropic';
+          const list = ((s.llmModels && s.llmModels[fam]) || []).slice();
+          if (p.model && !list.some(x => x.id === p.model)) list.unshift({ id: p.model, label: p.model + ' · текущая' });
+          return list.map(x => ({ id: x.id, label: x.label || x.id }));
+        })(),
+        onModelSelect: e => this.llmUpdate(p.id, { model: e.target.value }),
         keyStatus: p.has_key ? 'ключ задан' : 'ключа нет', keyStatusStyle: this.chip(p.has_key ? 'var(--ok)' : 'var(--fg3)'),
         keyDraft: d.key || '', keyPlaceholder: p.kind === 'subscription' ? 'вставить OAuth-токен подписки (sk-ant-oat…)' : (p.kind === 'openai' ? 'sk-… (OpenAI)' : 'sk-ant-… (Anthropic)'),
         onKey: e => setDraft(p.id, { key: e.target.value }),
