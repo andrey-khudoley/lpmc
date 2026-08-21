@@ -15,9 +15,16 @@ function token() {
   catch { return ""; }
 }
 
+// Подписочный OAuth принимает запрос только когда первый system-блок — идентичность
+// Claude Code; иначе Anthropic отвечает обманчивым 429 (не квота). Нашу инструкцию
+// кладём вторым блоком.
+const CLAUDE_CODE_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";
+
 function anthropic(tok, model, system, user) {
   return new Promise((resolve) => {
-    const body = Buffer.from(JSON.stringify({ model, max_tokens: 1024, system, messages: [{ role: "user", content: user }] }));
+    const blocks = [{ type: "text", text: CLAUDE_CODE_IDENTITY }];
+    if (system) blocks.push({ type: "text", text: system });
+    const body = Buffer.from(JSON.stringify({ model, max_tokens: 1024, system: blocks, messages: [{ role: "user", content: user }] }));
     const req = https.request({
       host: "api.anthropic.com", path: "/v1/messages", method: "POST", timeout: 45000,
       headers: { Authorization: `Bearer ${tok}`, "anthropic-beta": "oauth-2025-04-20",
