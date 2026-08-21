@@ -402,6 +402,14 @@ lpmc_system_master_key: "{{ lpmc_system_root }}/pact/keys/master.key"
 # Владелец выложенного кода — root. Иначе пользователь, которому принадлежит
 # рабочая копия, мог бы менять то, что исполняется от имени арбитра.
 lpmc_system_src_dir: /home/agent/workspaces/lpmc
+
+# --- Веб-интерфейс (шаг 12) -----------------------------------------------------
+# Отдаётся apache на пути /lpmc за basic-auth; внешний вход — через nginx.
+lpmc_system_web_user: lpmc-web
+lpmc_system_web_listen: "127.0.0.1:6200"
+lpmc_system_web_htpasswd: /etc/httpd/lpmc.htpasswd
+lpmc_system_web_login: "andrey@khudoley.pro"
+# lpmc_system_web_password — задаётся extra-vars (в git не хранится, как и домен/сертификаты).
 lpmc_system_app_dir: /usr/local/lib/lpmc
 
 # Пауза между проходами ретранслятора, когда отправлять нечего. Опрос, а не

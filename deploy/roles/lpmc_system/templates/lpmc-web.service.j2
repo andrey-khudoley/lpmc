@@ -1,0 +1,25 @@
+# Веб-интерфейс LPMC. Управляется ролью lpmc_system.
+[Unit]
+Description=Веб-интерфейс LPMC — задачи, диалоги квалификации, админка
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ lpmc_system_web_user }}
+Group={{ lpmc_system_web_user }}
+Environment=LPMC_WEB_LISTEN={{ lpmc_system_web_listen }}
+Environment=LPMC_DB={{ lpmc_system_db_name }}
+ExecStart=/usr/bin/node {{ lpmc_system_app_dir }}/packages/web/dist/src/server.js
+Restart=on-failure
+RestartSec=3
+
+# Веб-сервису не нужен доступ к записи в систему: код только читается, состояние —
+# в PostgreSQL по петлевому сокету. Домашний каталог других компонентов закрыт.
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

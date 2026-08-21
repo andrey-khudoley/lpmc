@@ -15,3 +15,6 @@ deploy/inventory/hosts.ini
 deploy/**/vault.yml
 *.vault
 storage_state.json
+
+# Артефакты playwright-снимков (визуальная проверка)
+.playwright-mcp/

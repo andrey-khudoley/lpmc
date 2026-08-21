@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @lpmc/contracts && npm run build -w @lpmc/runtime && npm run build -w @lpmc/executor && npm run build -w @lpmc/pact && npm run build -w @lpmc/dispatch && npm run build -w @lpmc/lina && npm run build -w @lpmc/mita && npm run build -w @lpmc/cita && npm run build -w @lpmc/egress && npm run build -w @lpmc/view && npm run build -w @lpmc/tui && npm run build -w @lpmc/admin",
+    "build": "npm run build -w @lpmc/contracts && npm run build -w @lpmc/runtime && npm run build -w @lpmc/executor && npm run build -w @lpmc/pact && npm run build -w @lpmc/dispatch && npm run build -w @lpmc/lina && npm run build -w @lpmc/mita && npm run build -w @lpmc/cita && npm run build -w @lpmc/egress && npm run build -w @lpmc/view && npm run build -w @lpmc/tui && npm run build -w @lpmc/admin && npm run build -w @lpmc/web",
     "test": "npm run test -w @lpmc/contracts && npm run test -w @lpmc/runtime && npm run test -w @lpmc/executor && npm run test -w @lpmc/pact && npm run test -w @lpmc/dispatch && npm run test -w @lpmc/lina && npm run test -w @lpmc/mita && npm run test -w @lpmc/cita && npm run test -w @lpmc/egress"
   },
   "devDependencies": {

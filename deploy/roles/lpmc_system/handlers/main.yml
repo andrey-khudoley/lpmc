@@ -43,3 +43,8 @@
   ansible.builtin.systemd_service:
     name: nginx
     state: reloaded
+
+- name: Перечитать apache
+  ansible.builtin.systemd_service:
+    name: httpd
+    state: reloaded

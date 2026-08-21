@@ -1,0 +1,16 @@
+# Веб-интерфейс LPMC на /lpmc. Управляется ролью lpmc_system.
+# Внешний вход — только через nginx (vds.khudoley.pro:443 → apache 127.0.0.1:8008).
+# Basic-auth и обратное проксирование на Node-приложение веб-интерфейса.
+
+RedirectMatch ^/lpmc$ /lpmc/
+
+<Location /lpmc/>
+    AuthType Basic
+    AuthName "LPMC"
+    AuthUserFile {{ lpmc_system_web_htpasswd }}
+    Require valid-user
+
+    ProxyPass         http://{{ lpmc_system_web_listen }}/
+    ProxyPassReverse  http://{{ lpmc_system_web_listen }}/
+    ProxyPreserveHost Off
+</Location>

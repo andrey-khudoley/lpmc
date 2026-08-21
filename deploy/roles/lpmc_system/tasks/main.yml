@@ -2182,3 +2182,146 @@
       set -euo pipefail
       exec sudo -u lpmc-pact /usr/bin/node \
         {{ lpmc_system_app_dir }}/packages/admin/dist/src/main.js "$@"
+
+# ============================================================================
+# ШАГ 12. Веб-интерфейс LPMC (@lpmc/web) — задачи, диалоги квалификации, админка.
+#
+# Отдельный контур представления. Своя схема web (модель задач и диалогов), из
+# схемы pact — только чтение политики и добавление строк allowlist/правил;
+# значения секретов и мастер-ключ на веб-сервис намеренно не выносятся. Наружу
+# отдаётся apache по пути /lpmc за basic-auth; внешний вход — через nginx.
+- name: Создать группу веб-интерфейса
+  ansible.builtin.group:
+    name: "{{ lpmc_system_web_user }}"
+    system: true
+    state: present
+
+- name: Создать системного пользователя веб-интерфейса
+  ansible.builtin.user:
+    name: "{{ lpmc_system_web_user }}"
+    group: "{{ lpmc_system_web_user }}"
+    system: true
+    shell: /sbin/nologin
+    home: "{{ lpmc_system_root }}/web"
+    create_home: true
+    password: '!'
+    password_lock: true
+
+- name: Прочитать роли базы (веб)
+  become: true
+  become_user: postgres
+  ansible.builtin.command: { cmd: 'psql -tAc "SELECT rolname FROM pg_roles"' }
+  register: lpmc_web_roles
+  changed_when: false
+
+- name: Создать роль БД веб-интерфейса
+  become: true
+  become_user: postgres
+  ansible.builtin.command: { cmd: 'psql -c ''CREATE ROLE "{{ lpmc_system_web_user }}" LOGIN''' }
+  when: lpmc_system_web_user not in lpmc_web_roles.stdout_lines
+  changed_when: true
+
+- name: Разрешить веб-интерфейсу подключение к базе
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: 'psql -d {{ lpmc_system_db_name }} -c ''GRANT CONNECT ON DATABASE {{ lpmc_system_db_name }} TO "{{ lpmc_system_web_user }}"'''
+  changed_when: false
+
+- name: Прочитать схемы (веб)
+  become: true
+  become_user: postgres
+  ansible.builtin.command: { cmd: 'psql -d {{ lpmc_system_db_name }} -tAc "SELECT nspname FROM pg_namespace"' }
+  register: lpmc_web_schemas
+  changed_when: false
+
+- name: Создать схему web
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: 'psql -d {{ lpmc_system_db_name }} -c ''CREATE SCHEMA web AUTHORIZATION "{{ lpmc_system_web_user }}"'''
+  when: "'web' not in lpmc_web_schemas.stdout_lines"
+  changed_when: true
+
+- name: Задать веб-интерфейсу схему по умолчанию
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: 'psql -c ''ALTER ROLE "{{ lpmc_system_web_user }}" IN DATABASE {{ lpmc_system_db_name }} SET search_path = web'''
+  changed_when: false
+
+# Точечные права: чтение политики PACT (без значений секретов) и добавление
+# строк allowlist/правил/необратимости. USAGE на схему pact без права менять её.
+- name: Выдать веб-интерфейсу права на чтение и дополнение политики PACT
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: >-
+      psql -d {{ lpmc_system_db_name }} -v ON_ERROR_STOP=1 -c
+      "GRANT USAGE ON SCHEMA pact TO \"{{ lpmc_system_web_user }}\";
+       GRANT SELECT ON pact.owners, pact.owner_bindings, pact.rules, pact.egress_allow,
+         pact.irreversibility, pact.secret_names, pact.session_snapshots, pact.approvals
+         TO \"{{ lpmc_system_web_user }}\";
+       GRANT INSERT ON pact.egress_allow, pact.rules, pact.irreversibility TO \"{{ lpmc_system_web_user }}\";
+       GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA pact TO \"{{ lpmc_system_web_user }}\";"
+  changed_when: false
+
+- name: Применить миграции веб-интерфейса
+  ansible.builtin.command:
+    cmd: >-
+      /usr/sbin/runuser -u {{ lpmc_system_web_user }} --
+      /usr/bin/node {{ lpmc_system_app_dir }}/packages/web/dist/src/migrate.js
+  register: lpmc_web_migrations
+  changed_when: "'применены миграции' in lpmc_web_migrations.stdout"
+
+- name: Разрешить apache исходящие соединения (проксирование на веб)
+  ansible.builtin.command:
+    cmd: setsebool -P httpd_can_network_connect on
+  changed_when: false
+  failed_when: false
+
+- name: Установить инструмент htpasswd
+  ansible.builtin.dnf: { name: httpd-tools, state: present }
+
+# Логин и пароль приходят из переменных (пароль — extra-vars, в git не хранится).
+- name: Завести basic-auth для /lpmc
+  ansible.builtin.command:
+    cmd: htpasswd -Bbc {{ lpmc_system_web_htpasswd }} "{{ lpmc_system_web_login }}" "{{ lpmc_system_web_password }}"
+  no_log: true
+  changed_when: true
+
+- name: Положить конфигурацию apache для /lpmc
+  ansible.builtin.template:
+    src: lpmc-apache.conf.j2
+    dest: /etc/httpd/conf.d/lpmc.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Перечитать apache
+
+- name: Положить юнит веб-интерфейса
+  ansible.builtin.template:
+    src: lpmc-web.service.j2
+    dest: /etc/systemd/system/lpmc-web.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Перечитать юниты systemd после установки веб-интерфейса
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Включить и запустить веб-интерфейс
+  ansible.builtin.systemd_service:
+    name: lpmc-web
+    enabled: true
+    state: started
+
+- name: Перезапустить веб-интерфейс при смене кода
+  ansible.builtin.systemd_service:
+    name: lpmc-web
+    state: restarted
+  when: lpmc_code_sync.changed
+
+- name: Применить отложенное перечитывание apache
+  ansible.builtin.meta: flush_handlers
