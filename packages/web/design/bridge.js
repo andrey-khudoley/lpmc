@@ -90,7 +90,7 @@
     // Стереть мок-данные и загрузить живые.
     // selectedTask сбрасываем: мок-дефолт 't1' реальной задачей не подкреплён,
     // а при нём общий диалог Лины не считался бы активным.
-    this.setState({ tasks: [], dialogs: [], inbox: [], selectedTask: null, allow: [], irr: [], rules: [], secrets: [], approvals: [], instances: [] });
+    this.setState({ tasks: [], dialogs: [], inbox: [], adminInbox: [], selectedTask: null, allow: [], irr: [], rules: [], secrets: [], approvals: [], instances: [] });
     // На телефоне стартуем со списка задач: чат открывается тапом по задаче.
     if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 680px)").matches) {
       this.setState({ chatHidden: true });
@@ -98,6 +98,7 @@
     this.loadAll(this.state.selectedTask);
     this.loadAdmin();
     this.loadInbox();
+    this.loadAdminInbox();
     this.__poll = setInterval(() => {
       const t = (this.state.tasks || []).find((x) => x.id === this.state.selectedTask);
       if (t && t.status === "doing" && this.live) this.loadAll(this.state.selectedTask);
@@ -108,6 +109,18 @@
   P.loadInbox = async function () {
     try { const r = await jx("lina/inbox"); this.setState({ inbox: (r.messages || []).map(mapMsg) }); }
     catch (e) { /* общий диалог не критичен для остального интерфейса */ }
+  };
+  P.loadAdminInbox = async function () {
+    try { const r = await jx("admin/assistant"); this.setState({ adminInbox: (r.messages || []).map(mapMsg) }); }
+    catch (e) { /* ассистент админки не критичен для остального */ }
+  };
+  P.adminSend = async function () {
+    const text = (this.state.adminComposer || "").trim(); if (!text) return;
+    this.setState({ adminComposer: "" });
+    // Ассистент админки: разбирает запрос и создаёт сущность; экран — контекст.
+    try { await jx("admin/assistant", "POST", { text, screen: this.state.adminScreen || "" }); } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdminInbox();
+    await this.loadAdmin();
   };
   P.send = async function () {
     const text = (this.state.composer || "").trim(); if (!text) return;
