@@ -1,6 +1,29 @@
 import type pg from "pg";
 import * as admin from "./admin.js";
 import { addTaskType } from "./store.js";
+import * as llm from "./llm.js";
+
+const TASKTYPE_SYSTEM = [
+  "Ты квалификатор задач в системе LPMC. По описанию оператора верни JSON-объект типа задачи.",
+  "Поля строго: name (краткое название рода задач, без служебных слов), keywords (ключевые слова через запятую для сопоставления будущих обращений), executor (\"mita\" для браузерных задач — открыть страницу/прочитать содержимое/скриншот; \"cita\" для внешних API и создания записей), clarify (что уточнить у пользователя), dod_template (машинно-проверяемая форма критериев приёмки — ровно одна из: 'page-contains https://ХОСТ/ \"СТРОКА\"' | 'http-status https://ХОСТ/ = 200' | 'artifact-exists report' | 'rows-at-least N' | 'record-created \"НАЗВАНИЕ\"').",
+  "Плейсхолдеры оставляй ЗАГЛАВНЫМИ (ХОСТ, СТРОКА, N, НАЗВАНИЕ). Отвечай ТОЛЬКО JSON, без пояснений и без markdown.",
+].join(" ");
+
+function parseTaskType(raw: string): { name: string; keywords: string; executor: string; clarify: string; dod_template: string } | null {
+  const s = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    const o = JSON.parse(s) as Record<string, unknown>;
+    const name = String(o["name"] ?? "").trim();
+    if (!name) return null;
+    return {
+      name: name.slice(0, 120),
+      keywords: String(o["keywords"] ?? "").trim(),
+      executor: o["executor"] === "cita" ? "cita" : "mita",
+      clarify: String(o["clarify"] ?? "").trim(),
+      dod_template: String(o["dod_template"] ?? "").trim(),
+    };
+  } catch { return null; }
+}
 
 /**
  * Ассистент админки: у каждого раздела свой сайдбар и свой scope — жёстко
@@ -93,11 +116,30 @@ async function handle(pool: pg.Pool, text: string, scope: string): Promise<strin
   }
 
   if (entity === "tasktype" || entity === "type") {
+    // Есть включённая модель — интерпретируем ею (заполняет все поля). Если модель
+    // включена, но недоступна (лимит/ошибка) — тип НЕ создаём и говорим почему,
+    // чтобы не плодить пустой мусор.
+    if (await llm.anyEnabled(pool)) {
+      const r = await llm.complete(pool, TASKTYPE_SYSTEM, text);
+      if (r.ok) {
+        const fields = parseTaskType(r.text);
+        if (fields) {
+          await addTaskType(pool, fields);
+          return `Тип «${fields.name}» добавлен через модель (${r.provider}) — заполнены ключевые слова, исполнитель (${fields.executor})${fields.dod_template ? ", критерии " + fields.dod_template : ""}. Проверьте кнопкой «изменить».`;
+        }
+        return "Модель ответила не в ожидаемом формате — тип не создан. Переформулируйте или заведите мастером «+ Тип задачи».";
+      }
+      return "Модель недоступна: " + r.errors.join("; ") + ". Тип не создан — дождитесь сброса лимитов, добавьте ключ Anthropic/OpenAI в разделе «Модель» или заведите мастером «+ Тип задачи».";
+    }
+    // Модель не включена: по короткому названию заведём, по свободной фразе —
+    // попросим включить модель, а не свалим предложение в название.
     let name = (/тип\S*(?:\s+задач\S*)?\s+[«"]?(.+?)[»"]?\s*$/i.exec(text) ?? [])[1] ?? "";
     if (!name) name = text.replace(/^\s*(?:добав\S*|созда\S*|заведи\S*|нов\S*)\s+(?:тип\S*(?:\s+задач\S*)?)?\s*/i, "").replace(/[«»"]/g, "").trim();
+    const sentence = name.length > 60 || /[.!?]\s|\s-\s|,/.test(name);
     if (!name) return "Как назвать тип задачи? Например: «Проверить DNS-запись».";
+    if (sentence) return "Чтобы разобрать свободную формулировку и заполнить поля, включите модель в разделе «Модель». Без модели укажите короткое название типа (например «Проверить доступность»).";
     await addTaskType(pool, { name, keywords: "", executor: "mita", clarify: "", dod_template: "" });
-    return `Тип «${name}» добавлен. Уточните ключевые слова и шаблон критериев кнопкой «изменить» в таблице.`;
+    return `Тип «${name}» добавлен (без модели — поля пустые, заполните кнопкой «изменить»).`;
   }
 
   if (entity === "client") {

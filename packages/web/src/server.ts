@@ -6,6 +6,7 @@ import { createPool } from "@lpmc/runtime";
 import * as store from "./store.js";
 import * as admin from "./admin.js";
 import * as assistant from "./assistant.js";
+import * as llm from "./llm.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(here, "..", "..", "public");
@@ -94,6 +95,19 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
   if (path === "/api/tasktypes" && m === "POST") { await store.addTaskType(pool, { name: str(body["name"]), keywords: str(body["keywords"]), executor: str(body["executor"]), clarify: str(body["clarify"]), dod_template: str(body["dod_template"]) }); return json(res, 201, { ok: true }); }
   if (seg[0] === "api" && seg[1] === "tasktypes" && seg[2] && m === "POST") { await store.updateTaskType(pool, Number(seg[2]), { name: str(body["name"]), keywords: str(body["keywords"]), executor: str(body["executor"]), clarify: str(body["clarify"]), dod_template: str(body["dod_template"]) }); return json(res, 200, { ok: true }); }
   if (seg[0] === "api" && seg[1] === "tasktypes" && seg[2] && m === "DELETE") { await store.delTaskType(pool, Number(seg[2])); return json(res, 200, { ok: true }); }
+
+  // ---- Провайдеры модели (LLM с фейловером) ----
+  if (path === "/api/admin/llm" && m === "GET") return json(res, 200, await llm.listProviders(pool));
+  if (path === "/api/admin/llm/reorder" && m === "POST") { await llm.reorder(pool, arr(body["ids"]).map(Number)); return json(res, 200, { ok: true }); }
+  if (seg[0] === "api" && seg[1] === "admin" && seg[2] === "llm" && seg[3] && seg[4] === "clear" && m === "POST") { await llm.clearKey(pool, Number(seg[3])); return json(res, 200, { ok: true }); }
+  if (seg[0] === "api" && seg[1] === "admin" && seg[2] === "llm" && seg[3] && m === "POST") {
+    await llm.updateProvider(pool, Number(seg[3]), {
+      enabled: typeof body["enabled"] === "boolean" ? (body["enabled"] as boolean) : undefined,
+      model: typeof body["model"] === "string" ? (body["model"] as string) : undefined,
+      apiKey: str(body["apiKey"]),
+    });
+    return json(res, 200, { ok: true });
+  }
 
   // ---- Ассистент админки ----
   if (path === "/api/admin/assistant" && m === "GET") return json(res, 200, await assistant.getAssistant(pool));

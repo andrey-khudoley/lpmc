@@ -859,6 +859,47 @@
           </div>
         </sc-if>
 
+        <!-- ── Модель (LLM-провайдеры с фейловером) ── -->
+        <sc-if value="{{ isModel }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.6 Модель · провайдеры" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.6</span><span style="width:22px;height:1px;background:var(--line-2);"></span>интерпретация запросов</span>
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Провайдеры модели и фейловер</span>
+            </div>
+
+            <div style="border:1px solid var(--line-2);background:var(--surface);padding:11px 14px;display:flex;gap:11px;align-items:baseline;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase;flex:none;">цепочка</span>
+              <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);">Запрос ассистента идёт по включённым провайдерам сверху вниз. Если провайдер отказал — протух токен подписки, нет ключа, недостаточный баланс, ошибка вендора — запрос уходит следующему, пока не выполнится. Порядок — стрелками справа. Значения ключей наружу не отдаются.</span>
+            </div>
+
+            <sc-for list="{{ providerRows }}" as="p" hint-placeholder-count="3">
+              <div style="{{ p.rowStyle }}">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);width:18px;">#{{ p.priority }}</span>
+                  <span onClick="{{ p.onToggle }}" style="{{ p.enabledStyle }}" title="включить/выключить">{{ p.enabledMark }}</span>
+                  <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;">{{ p.label }}</span>
+                  <span style="{{ p.keyStatusStyle }}">{{ p.keyStatus }}</span>
+                  <span style="flex:1;"></span>
+                  <span onClick="{{ p.onUp }}" style="{{ p.upStyle }}" title="выше">▲</span>
+                  <span onClick="{{ p.onDown }}" style="{{ p.downStyle }}" title="ниже">▼</span>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);width:70px;">модель</span>
+                  <input value="{{ p.model }}" onInput="{{ p.onModel }}" placeholder="имя модели" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:8px 10px;font-family:'JetBrains Mono',monospace;">
+                  <span onClick="{{ p.onSaveModel }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:8px 12px;font-size:11.5px;" style-hover="border-color:var(--fg3)">Сохранить</span>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);width:70px;">ключ</span>
+                  <input value="{{ p.keyDraft }}" onInput="{{ p.onKey }}" type="password" placeholder="{{ p.keyPlaceholder }}" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:8px 10px;font-family:'JetBrains Mono',monospace;">
+                  <span onClick="{{ p.onSaveKey }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:8px 12px;font-size:11.5px;font-weight:600;" style-hover="filter:brightness(1.08)">Сохранить ключ</span>
+                  <span onClick="{{ p.onClearKey }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">убрать</span>
+                </div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);line-height:1.6;">{{ p.hint }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
         <!-- ── Просмотр экрана ── -->
         <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="02.4 Просмотр экрана" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
@@ -1712,7 +1753,8 @@ class Component extends DCLogic {
       ['secrets', '3.2', 'Секреты', ''],
       ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : ''],
       ['clients', '3.4', 'Клиенты', s.ownerRows ? String(s.ownerRows.length) : ''],
-      ['types', '3.5', 'Типы задач', s.taskTypes ? String(s.taskTypes.length) : '']
+      ['types', '3.5', 'Типы задач', s.taskTypes ? String(s.taskTypes.length) : ''],
+      ['model', '3.6', 'Модель', '']
     ].map(([k, num, label, badge]) => ({ num, label, badge,
       onOpen: () => this.setState({ adminScreen: k }),
       style: 'cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 11px;font-size:13px;'
@@ -1803,6 +1845,35 @@ class Component extends DCLogic {
       execStyle: this.chip('var(--fg3)'),
       onEdit: () => this.openWizard('tasktype', t),
       onDelete: () => this.delTaskType(t) }));
+
+    // ── провайдеры модели (LLM с фейловером по приоритету)
+    const llmProviders = s.llmProviders || [];
+    const kindLabel = { subscription: 'По подписке · OAuth', anthropic: 'Anthropic API', openai: 'OpenAI API' };
+    const kindHint = { subscription: 'токен подписки Claude (протухает — тогда сработает фейловер)', anthropic: 'ключ sk-ant-…', openai: 'ключ sk-… OpenAI' };
+    const swap = (a, i, j) => { const b = a.slice(); const t = b[i]; b[i] = b[j]; b[j] = t; return b; };
+    const setDraft = (id, patch) => this.setState(st => ({ llmDraft: Object.assign({}, st.llmDraft, { [id]: Object.assign({}, (st.llmDraft || {})[id], patch) }) }));
+    const ids = llmProviders.map(p => p.id);
+    const providerRows = llmProviders.map((p, i) => {
+      const d = (s.llmDraft && s.llmDraft[p.id]) || {};
+      const model = d.model !== undefined ? d.model : p.model;
+      return { id: p.id, kind: p.kind, label: kindLabel[p.kind] || p.kind, hint: kindHint[p.kind] || '',
+        priority: String(i + 1), isSub: p.kind === 'subscription',
+        enabled: p.enabled, enabledMark: p.enabled ? '☑' : '☐',
+        enabledStyle: 'cursor:pointer;font-size:17px;line-height:1;color:' + (p.enabled ? 'var(--accent)' : 'var(--fg3)') + ';',
+        onToggle: () => this.llmUpdate(p.id, { enabled: !p.enabled }),
+        model, onModel: e => setDraft(p.id, { model: e.target.value }),
+        onSaveModel: () => this.llmUpdate(p.id, { model: (d.model !== undefined ? d.model : p.model) }),
+        keyStatus: p.has_key ? 'ключ задан' : 'ключа нет', keyStatusStyle: this.chip(p.has_key ? 'var(--ok)' : 'var(--fg3)'),
+        keyDraft: d.key || '', keyPlaceholder: p.kind === 'subscription' ? 'вставить OAuth-токен подписки (sk-ant-oat…)' : (p.kind === 'openai' ? 'sk-… (OpenAI)' : 'sk-ant-… (Anthropic)'),
+        onKey: e => setDraft(p.id, { key: e.target.value }),
+        onSaveKey: () => { const k = (d.key || '').trim(); if (k) this.llmUpdate(p.id, { apiKey: k }); setDraft(p.id, { key: '' }); },
+        onClearKey: () => this.llmClearKey(p.id),
+        canUp: i > 0, canDown: i < llmProviders.length - 1,
+        onUp: () => this.llmReorder(swap(ids, i, i - 1)), onDown: () => this.llmReorder(swap(ids, i, i + 1)),
+        upStyle: 'cursor:' + (i > 0 ? 'pointer' : 'default') + ';color:' + (i > 0 ? 'var(--fg2)' : 'var(--line-2)') + ';font-size:13px;',
+        downStyle: 'cursor:' + (i < llmProviders.length - 1 ? 'pointer' : 'default') + ';color:' + (i < llmProviders.length - 1 ? 'var(--fg2)' : 'var(--line-2)') + ';font-size:13px;',
+        rowStyle: 'border:1px solid ' + (p.enabled ? 'var(--accent-line)' : 'var(--line-2)') + ';background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:12px;' };
+    });
 
     // ── ассистент раздела: тип сущности задаёт сам раздел (scope), не текст
     const assistScope = s.adminScreen === 'clients' ? 'client'
@@ -1994,6 +2065,7 @@ class Component extends DCLogic {
       isClients: s.adminScreen === 'clients', clientRows, bindingRows,
       openClientWizard: () => this.openWizard('client'),
       isTypes: s.adminScreen === 'types', typeRows, openTypeWizard: () => this.openWizard('tasktype'),
+      isModel: s.adminScreen === 'model', providerRows,
       assist,
       serviceTabs, tabAllow: s.servicesTab === 'allow', tabIrr: s.servicesTab === 'irr', tabRules: s.servicesTab === 'rules',
       allowRows, irrRows, ruleRows, secretRows,

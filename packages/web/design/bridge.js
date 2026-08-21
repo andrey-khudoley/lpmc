@@ -65,9 +65,10 @@
 
   P.loadAdmin = async function () {
     try {
-      const [sv, se, ap, ow, tt] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners"), jx("tasktypes")]);
+      const [sv, se, ap, ow, tt, lm] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners"), jx("tasktypes"), jx("admin/llm")]);
       const stateLabel = (s) => s === "approved" ? "подтверждено" : s === "denied" ? "отказано" : s === "pending" ? "ожидает" : s;
       this.setState({
+        llmProviders: (lm.providers || []).map((p) => ({ id: p.id, kind: p.kind, enabled: p.enabled, model: p.model, priority: p.priority, has_key: p.has_key })),
         taskTypes: (tt.types || []).map((t) => ({ id: t.id, name: t.name, keywords: t.keywords, executor: t.executor, clarify: t.clarify, dod_template: t.dod_template })),
         // Для выбора владельца в мастерах — только действующие: архивный лишён
         // правил и привязок, обращение к нему получило бы отказ на валидации.
@@ -238,6 +239,19 @@
       if (r && r.ok === false) { this.toast("нельзя удалить", r.reason || "владелец используется"); return; }
       this.toast("владельцы", "клиент " + slug + " удалён, строк стёрто: " + rowsTotal(r && r.deleted));
     } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+
+  P.llmUpdate = async function (id, patch) {
+    try { await jx("admin/llm/" + id, "POST", patch); } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+  P.llmReorder = async function (ids) {
+    try { await jx("admin/llm/reorder", "POST", { ids }); } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+  P.llmClearKey = async function (id) {
+    try { await jx("admin/llm/" + id + "/clear", "POST"); this.toast("модель", "ключ убран"); } catch (e) { this.toast("ошибка", e.message); }
     await this.loadAdmin();
   };
 
