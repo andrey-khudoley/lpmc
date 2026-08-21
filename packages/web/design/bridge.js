@@ -229,6 +229,14 @@
         this.toast("владельцы", "клиент " + w.slug + " добавлен"); this.setState({ wizard: null }); await this.loadAdmin();
         return;
       }
+      if (w.kind === "rule") {
+        const setErr = (msg) => this.setState((s) => ({ wizard: Object.assign({}, s.wizard, { err: msg }) }));
+        if (!/^[a-z]+:[a-z0-9_.-]+$/i.test(w.sender || "")) { setErr("отправитель: вид канал:актор, например cli:operator"); return; }
+        if (!w.caps || !w.caps.length) { setErr("выберите хотя бы одно полномочие"); return; }
+        await jx("admin/rule", "POST", { sender: w.sender, owner: w.owner, caps: w.caps, exec: w.exec || "mita", lease: Number(w.lease) || 1800, appr: !!w.appr });
+        this.toast("политика", "правило заведено для " + w.sender); this.setState({ wizard: null }); await this.loadAdmin();
+        return;
+      }
       if (w.kind === "endpoint") {
         await jx("admin/allow", "POST", { owner: w.owner || "internal", host: w.host, methods: csv(w.methods), paths: csv(w.paths), op: w.op || "auto" });
         this.toast("готово", "эндпоинт разрешён"); this.setState({ wizard: null }); await this.loadAdmin();

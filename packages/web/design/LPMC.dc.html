@@ -602,6 +602,7 @@
                 <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Сервисы и правила</span>
               </div>
               <span style="flex:1;"></span>
+              <span onClick="{{ openRuleWizard }}" style="cursor:pointer;border:1px solid var(--accent-line);color:var(--accent);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="background:var(--accent-soft)">+ Правило</span>
               <span onClick="{{ openEndpointWizard }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.08)">+ Разрешить эндпоинт</span>
             </div>
 
@@ -1375,6 +1376,10 @@ class Component extends DCLogic {
       ? { kind, step: 1, total: 3, owner: 'acme-school', host: '', methods: [], paths: '', op: 'auto' }
       : kind === 'client'
       ? { kind, step: 1, total: 1, slug: '', category: 'client' }
+      : kind === 'rule'
+      ? { kind, step: 1, total: 1, sender: 'cli:operator',
+          owner: (this.state.realOwners && this.state.realOwners[0]) || 'internal',
+          caps: ['page.read', 'report.build'], exec: 'mita', lease: '1800', appr: false }
       : { kind, step: 1, total: 2, name: '', owner: 'acme-school', purpose: '', value: '' };
     this.setState({ wizard: w });
   }
@@ -1727,6 +1732,24 @@ class Component extends DCLogic {
               value: '[' + w.owner + '] ' + w.host + ' ' + w.methods.join(',') + ' ' + (w.paths || '(любой путь)') + ' (' + w.op + ', v1)',
               onInput: () => {}, hint: true, hintText: 'запись попадёт в egress_allow с текущей версией набора правил' }
           ]; }
+      } else if (w.kind === 'rule') {
+        title = 'Правило · кому, что и каким исполнителем';
+        const caps = ['page.read', 'page.screenshot', 'report.build', 'api.read', 'record.create'];
+        fields = [
+          { label: 'отправитель', isInput: true, type: 'text', value: w.sender, placeholder: 'cli:operator',
+            onInput: e => this.setW({ sender: e.target.value, err: null }), hint: true,
+            hintText: 'кому выдаются полномочия; для веб-оператора — cli:operator', error: !!w.err, errorText: w.err },
+          { label: 'владелец', isChoice: true, options: owners.filter(o => o !== '*').map(o => ({ label: o, style: pick(w.owner === o), onPick: () => this.setW({ owner: o }) })) },
+          { label: 'полномочия', isChoice: true, options: caps.map(c => ({ label: c, style: pick(w.caps.includes(c)),
+            onPick: () => this.setW({ caps: w.caps.includes(c) ? w.caps.filter(x => x !== c) : [...w.caps, c], err: null }) })) },
+          { label: 'исполнитель', isChoice: true, options: ['mita', 'cita'].map(x => ({ label: x, style: pick(w.exec === x), onPick: () => this.setW({ exec: x }) })) },
+          { label: 'лизинг, сек', isInput: true, type: 'text', value: String(w.lease), placeholder: '1800',
+            onInput: e => this.setW({ lease: (e.target.value || '').replace(/\D/g, '') }), hint: true,
+            hintText: 'срок действия выданных полномочий на один запуск' },
+          { label: 'подтверждение оператором', isChoice: true, options: [
+            { label: 'не требуется', style: pick(!w.appr), onPick: () => this.setW({ appr: false }) },
+            { label: 'требуется', style: pick(w.appr), onPick: () => this.setW({ appr: true }) }] }
+        ];
       } else if (w.kind === 'client') {
         title = 'Новый клиент · слаг и категория';
         fields = [
@@ -1757,7 +1780,7 @@ class Component extends DCLogic {
       wizard = { open: true, step: w.step, total: w.total, title, fields, warn, warnText,
         canBack: w.step > 1, onBack: () => this.setW({ step: w.step - 1, err: null }),
         onNext: () => this.submitWizard(),
-        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : 'Разрешить') : 'Далее →',
+        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : w.kind === 'rule' ? 'Завести правило' : 'Разрешить') : 'Далее →',
         nextStyle: btn(w.kind === 'secret' && last ? 'var(--danger)' : 'var(--accent-fill)', w.kind === 'secret' && last ? '#2B0E12' : 'var(--accent-fill-fg)'),
         onClose: () => this.setState({ wizard: null }), onBackdrop: () => this.setState({ wizard: null }),
         stop: e => e.stopPropagation(),
@@ -1827,6 +1850,7 @@ class Component extends DCLogic {
       serviceTabs, tabAllow: s.servicesTab === 'allow', tabIrr: s.servicesTab === 'irr', tabRules: s.servicesTab === 'rules',
       allowRows, irrRows, ruleRows, secretRows,
       openEndpointWizard: () => this.openWizard('endpoint'), openSecretWizard: () => this.openWizard('secret'),
+      openRuleWizard: () => this.openWizard('rule'),
       approvalRows, approvalCount: pending.length, approvalsEmpty: s.approvals.length === 0, approval,
       instanceRows, view, wizard, confirm,
       toasts: s.toasts.map(t => ({ label: t.label, text: t.text,
