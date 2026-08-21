@@ -75,7 +75,7 @@
         bindingRows: (ow.bindings || []).map((b) => ({ sender: b.sender, route: b.route, owner: b.owner_slug })),
         allow: (sv.allow || []).map((a) => ({ owner: a.owner, host: a.host, methods: a.methods, paths: a.paths, op: a.op, version: a.version })),
         irr: (sv.irr || []).map((a) => ({ host: a.host, op: a.op, cls: a.cls, version: a.version })),
-        rules: (sv.rules || []).map((a) => ({ sender: a.sender, owner: a.owner, caps: a.caps, exec: a.exec, lease: a.lease + " s", appr: a.appr })),
+        rules: (sv.rules || []).map((a) => ({ id: a.id, sender: a.sender, owner: a.owner, caps: a.caps, exec: a.exec, lease: a.lease, leaseLabel: a.lease + " s", appr: a.appr })),
         secrets: (se.secrets || []).map((s) => ({ name: s.name, owner: s.owner, purpose: s.purpose, updated: s.updated })),
         approvals: (ap.approvals || []).map((a) => ({ id: a.id, host: a.host, op: a.op, state: a.state, stateLabel: stateLabel(a.state), created: a.created || "", title: a.op + " · " + a.host, owner: "" })),
         instances: [],
@@ -220,6 +220,13 @@
     await this.loadAdmin();
   };
 
+  P.delRuleRow = async function (r) {
+    if (typeof window !== "undefined" && !window.confirm("Удалить правило «" + r.sender + " → " + r.owner + "»?")) return;
+    try { await jx("admin/rule/" + r.id, "DELETE"); this.toast("политика", "правило удалено"); }
+    catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+
   P.submitWizard = async function () {
     const w = this.state.wizard; if (!w) return;
     try {
@@ -233,8 +240,10 @@
         const setErr = (msg) => this.setState((s) => ({ wizard: Object.assign({}, s.wizard, { err: msg }) }));
         if (!/^[a-z]+:[a-z0-9_.-]+$/i.test(w.sender || "")) { setErr("отправитель: вид канал:актор, например cli:operator"); return; }
         if (!w.caps || !w.caps.length) { setErr("выберите хотя бы одно полномочие"); return; }
-        await jx("admin/rule", "POST", { sender: w.sender, owner: w.owner, caps: w.caps, exec: w.exec || "mita", lease: Number(w.lease) || 1800, appr: !!w.appr });
-        this.toast("политика", "правило заведено для " + w.sender); this.setState({ wizard: null }); await this.loadAdmin();
+        const body = { sender: w.sender, owner: w.owner, caps: w.caps, exec: w.exec || "mita", lease: Number(w.lease) || 1800, appr: !!w.appr };
+        if (w.id) { await jx("admin/rule/" + w.id, "POST", body); this.toast("политика", "правило обновлено"); }
+        else { await jx("admin/rule", "POST", body); this.toast("политика", "правило заведено для " + w.sender); }
+        this.setState({ wizard: null }); await this.loadAdmin();
         return;
       }
       if (w.kind === "endpoint") {

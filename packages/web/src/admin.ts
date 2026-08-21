@@ -186,6 +186,16 @@ export async function delAllow(pool: pg.Pool, id: number): Promise<void> {
 export async function delRule(pool: pg.Pool, id: number): Promise<void> {
   await pool.query("DELETE FROM pact.rules WHERE id = $1", [id]);
 }
+/** Правка правила на месте (в т.ч. набора capabilities). Версию набора не трогаем:
+ *  это операторская корректировка действующей строки, а не новый набор правил. */
+export async function updateRule(pool: pg.Pool, id: number, r: {
+  sender: string; owner: string; caps: string[]; exec: string; lease: number; appr: boolean;
+}): Promise<void> {
+  await pool.query(
+    `UPDATE pact.rules SET sender = $2, owner_slug = $3, capabilities = $4,
+       executor = $5, lease_ttl_seconds = $6, requires_approval = $7 WHERE id = $1`,
+    [id, r.sender, r.owner, r.caps, r.exec, r.lease, r.appr]);
+}
 export async function delIrr(pool: pg.Pool, id: number): Promise<void> {
   await pool.query("DELETE FROM pact.irreversibility WHERE id = $1", [id]);
 }

@@ -129,17 +129,6 @@
     </div>
   </sc-if>
 
-  <sc-if value="{{ showPrivBar }}" hint-placeholder-val="{{ false }}">
-    <div data-role="hatch" style="flex:none;display:flex;align-items:center;gap:14px;padding:8px 18px;border-bottom:1px solid var(--accent-line);background:var(--accent-soft);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--accent);">
-      <span style="display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;">
-        <span style="width:6px;height:6px;background:var(--accent);"></span>привилегированный контур
-      </span>
-      <span style="color:var(--fg2);">права: политика PACT + custody · запись таблиц владельцев, правил, allowlist и реестра секретов</span>
-      <span style="flex:1;"></span>
-      <span onClick="{{ goTasks }}" style="cursor:pointer;border:1px solid var(--accent-line);padding:3px 9px;color:var(--accent);">выйти к задачам</span>
-    </div>
-  </sc-if>
-
   <div data-role="frame" style="flex:1;display:flex;min-height:0;position:relative;">
 
     <!-- ═══════════ ЗАДАЧИ ═══════════ -->
@@ -653,8 +642,8 @@
 
             <sc-if value="{{ tabRules }}" hint-placeholder-val="{{ false }}">
               <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
-                <div style="display:grid;grid-template-columns:1.2fr 130px 1.5fr 90px 100px 110px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
-                  <span data-role="cell">отправитель</span><span data-role="cell">владелец</span><span data-role="cell">capabilities</span><span data-role="cell">исполнитель</span><span data-role="cell">лизинг</span><span data-role="cell">approval</span>
+                <div style="display:grid;grid-template-columns:1.1fr 100px 1.4fr 70px 82px 82px 116px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                  <span data-role="cell">отправитель</span><span data-role="cell">владелец</span><span data-role="cell">capabilities</span><span data-role="cell">исполнитель</span><span data-role="cell">лизинг</span><span data-role="cell">approval</span><span data-role="cell"></span>
                 </div>
                 <sc-for list="{{ ruleRows }}" as="r" hint-placeholder-count="4">
                   <div style="{{ r.rowStyle }}" style-hover="background:var(--surface-2)">
@@ -664,6 +653,10 @@
                     <span data-role="cell"><span style="{{ r.execStyle }}">{{ r.exec }}</span></span>
                     <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.lease }}</span>
                     <span data-role="cell"><span style="{{ r.apprStyle }}">{{ r.appr }}</span></span>
+                    <span data-role="cell" style="display:flex;justify-content:flex-end;gap:11px;">
+                      <span onClick="{{ r.onEdit }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--accent)">изменить</span>
+                      <span onClick="{{ r.onDelete }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">удалить</span>
+                    </span>
                   </div>
                 </sc-for>
               </div>
@@ -1371,15 +1364,19 @@ class Component extends DCLogic {
     return map[st] || map.draft;
   }
 
-  openWizard(kind) {
+  openWizard(kind, seed) {
     const w = kind === 'endpoint'
       ? { kind, step: 1, total: 3, owner: (this.state.realOwners && this.state.realOwners[0]) || 'internal', host: '', methods: [], paths: '', op: 'auto' }
       : kind === 'client'
       ? { kind, step: 1, total: 1, slug: '', category: 'client' }
       : kind === 'rule'
-      ? { kind, step: 1, total: 1, sender: 'cli:operator',
-          owner: (this.state.realOwners && this.state.realOwners[0]) || 'internal',
-          caps: ['page.read', 'report.build'], exec: 'mita', lease: '1800', appr: false }
+      ? (seed && seed.id
+          ? { kind, step: 1, total: 1, id: seed.id, sender: seed.sender, owner: seed.owner,
+              caps: Array.isArray(seed.caps) ? seed.caps.slice() : [], exec: seed.exec || 'mita',
+              lease: String(seed.lease || 1800), appr: !!seed.appr }
+          : { kind, step: 1, total: 1, sender: 'cli:operator',
+              owner: (this.state.realOwners && this.state.realOwners[0]) || 'internal',
+              caps: ['page.read', 'report.build'], exec: 'mita', lease: '1800', appr: false })
       : { kind, step: 1, total: 2, name: '', owner: 'acme-school', purpose: '', value: '' };
     this.setState({ wizard: w });
   }
@@ -1637,10 +1634,16 @@ class Component extends DCLogic {
     const irrRows = s.irr.map(r => ({ ...r, rowStyle: row + 'grid-template-columns:1.6fr 160px 1fr 80px;',
       clsStyle: this.chip(r.cls === 'irreversible' ? 'var(--danger)' : 'var(--fg3)',
         r.cls === 'irreversible' ? 'var(--danger-soft)' : 'transparent') }));
-    const ruleRows = s.rules.map(r => ({ ...r, appr: r.appr ? 'требуется' : 'нет',
-      rowStyle: row + 'grid-template-columns:1.2fr 130px 1.5fr 90px 100px 110px;',
+    const ruleRows = s.rules.map(r => ({
+      sender: r.sender, owner: r.owner,
+      caps: Array.isArray(r.caps) ? r.caps.join(', ') : (r.caps || ''),
+      exec: r.exec, lease: r.leaseLabel || (r.lease + ' s'),
+      appr: r.appr ? 'требуется' : 'нет',
+      rowStyle: row + 'grid-template-columns:1.1fr 100px 1.4fr 70px 82px 82px 116px;',
       execStyle: this.chip('var(--fg3)'),
-      apprStyle: this.chip(r.appr ? 'var(--warn)' : 'var(--fg3)') }));
+      apprStyle: this.chip(r.appr ? 'var(--warn)' : 'var(--fg3)'),
+      onEdit: () => this.openWizard('rule', r),
+      onDelete: () => this.delRuleRow(r) }));
     const secretRows = s.secrets.map(x => ({ ...x, rowStyle: row + 'grid-template-columns:1.3fr 150px 1.4fr 130px 110px;',
       onDelete: () => this.setState({ confirm: { kind: 'secret', name: x.name } }) }));
 
@@ -1733,7 +1736,7 @@ class Component extends DCLogic {
               onInput: () => {}, hint: true, hintText: 'запись попадёт в egress_allow с текущей версией набора правил' }
           ]; }
       } else if (w.kind === 'rule') {
-        title = 'Правило · кому, что и каким исполнителем';
+        title = w.id ? 'Изменить правило · полномочия и исполнитель' : 'Правило · кому, что и каким исполнителем';
         const caps = ['page.read', 'page.screenshot', 'report.build', 'api.read', 'record.create'];
         fields = [
           { label: 'отправитель', isInput: true, type: 'text', value: w.sender, placeholder: 'cli:operator',
@@ -1780,7 +1783,7 @@ class Component extends DCLogic {
       wizard = { open: true, step: w.step, total: w.total, title, fields, warn, warnText,
         canBack: w.step > 1, onBack: () => this.setW({ step: w.step - 1, err: null }),
         onNext: () => this.submitWizard(),
-        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : w.kind === 'rule' ? 'Завести правило' : 'Разрешить') : 'Далее →',
+        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : w.kind === 'rule' ? (w.id ? 'Сохранить правило' : 'Завести правило') : 'Разрешить') : 'Далее →',
         nextStyle: btn(w.kind === 'secret' && last ? 'var(--danger)' : 'var(--accent-fill)', w.kind === 'secret' && last ? '#2B0E12' : 'var(--accent-fill-fg)'),
         onClose: () => this.setState({ wizard: null }), onBackdrop: () => this.setState({ wizard: null }),
         stop: e => e.stopPropagation(),
@@ -1801,7 +1804,6 @@ class Component extends DCLogic {
       density: this.props.density ?? 'medium',
       isTasks: zone !== 'admin', isDialogs: false, isAdmin: admin, isOperator, isUser: !isOperator,
       readOnly, canEdit,
-      showPrivBar: admin && this.marker !== 'tint',
       opSessionLeft: '42:10',
       chatShown: !s.chatHidden, chatHidden: !!s.chatHidden,
       hideChat: () => this.setState({ chatHidden: true }),
