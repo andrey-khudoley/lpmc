@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#0B0A11;}
+  a{color:#FF6B4A;text-decoration:none;}
+  a:hover{color:#FFF;}
+  input,button,textarea{font-family:inherit;}
+  input::placeholder,textarea::placeholder{color:rgba(237,239,244,0.28);}
+  ::selection{background:rgba(225,80,47,0.32);color:#fff;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.13);border:3px solid transparent;background-clip:padding-box;border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.24);background-clip:padding-box;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  /* ── недоверенный контур LINA: холодный violet-ink ── */
+  [data-zone]{
+    --bg:#0B0A11; --bg-2:#0E0D15; --surface:#121019; --surface-2:#171524;
+    --line:rgba(188,180,255,0.10); --line-2:rgba(188,180,255,0.20);
+    --fg:#ECEAF2; --fg2:#A7A3BC; --fg3:#6F6B87;
+    --accent:#DE7B62; --accent-fg:#FFFFFF; --accent-fill:#E9E7F2;
+    --accent-soft:rgba(222,123,98,0.11); --accent-line:rgba(222,123,98,0.38);
+    --ok:#79B79B; --ok-soft:rgba(121,183,155,0.10);
+    --warn:#C9A15C; --warn-soft:rgba(201,161,92,0.10);
+    --danger:#D2707C; --danger-soft:rgba(210,112,124,0.10);
+    --rowpy:11px;
+  }
+  /* ── привилегированный контур: тёплый уголь + янтарь ── */
+  [data-zone="admin"]{
+    --bg:#0D0809; --bg-2:#110B0C; --surface:#151011; --surface-2:#1C1516;
+    --line:rgba(235,180,180,0.11); --line-2:rgba(235,180,180,0.20);
+    --fg:#F3ECEC; --fg2:#B9A8A8; --fg3:#83706F;
+    --accent:#CC7065; --accent-fg:#1B0F0E;
+    --accent-soft:rgba(204,112,101,0.12); --accent-line:rgba(204,112,101,0.40);
+  }
+  [data-zone]{--accent-fill-fg:#141021;}
+  [data-zone="admin"]{--accent-fill:#F1E7E5;--accent-fill-fg:#1B0F0E;}
+  [data-zone="admin"] [data-role=frame]{box-shadow:inset 0 0 0 1px var(--accent-line);}
+  [data-density=compact]{--rowpy:7px;}
+  [data-density=roomy]{--rowpy:16px;}
+  [data-role=cell]{padding:var(--rowpy) 14px;min-width:0;overflow:hidden;}
+  [data-role=hatch]{background-image:repeating-linear-gradient(135deg,var(--accent-soft) 0 10px,transparent 10px 20px);}
+
+  @keyframes rise{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+  @keyframes slidein{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:none;}}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @keyframes sweep{0%{transform:translateX(-100%);}100%{transform:translateX(320%);}}
+
+  @media(max-width:1280px){
+    [data-role=tabsub]{display:none !important;}
+    [data-role=chatpanel]{width:380px !important;}
+  }
+  @media(max-width:940px){
+    [data-role=chatpanel]{position:absolute;top:0;right:0;bottom:0;z-index:30;width:380px !important;max-width:92%;box-shadow:-24px 0 60px rgba(0,0,0,.55);}
+    [data-role=chatpanel]{}
+  }
+  @media(max-width:1060px){
+    [data-role=rolesw]{display:none !important;}
+  }
+  @media(max-width:1100px){
+    [data-role=dlglist]{width:270px !important;}
+    [data-role=twocol]{grid-template-columns:1fr !important;}
+  }
+  @media(max-width:820px){
+    [data-role=dlglist]{display:none !important;}
+    [data-role=adminnav]{width:60px !important;}
+    [data-role=navlabel]{display:none !important;}
+  }
+</style>
+</helmet>
+
+<div data-zone="{{ zoneAttr }}" data-density="{{ density }}" style="display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--fg);font-family:'Inter',system-ui,sans-serif;font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased;">
+
+  <div style="height:54px;flex:none;display:flex;align-items:center;gap:18px;padding:0 18px;border-bottom:1px solid var(--line);background:var(--bg-2);min-width:0;overflow:hidden;">
+    <div style="display:flex;align-items:baseline;gap:10px;flex:none;">
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;letter-spacing:.02em;">LPMC</span>
+      <span style="width:22px;height:1px;background:var(--line-2);"></span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--fg3);text-transform:uppercase;">lina · pact · mita · cita</span>
+    </div>
+
+    <div style="display:flex;gap:2px;padding:3px;border:1px solid var(--line);background:var(--surface);">
+      <div onClick="{{ goTasks }}" style="{{ tabTasksStyle }}">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;opacity:.62;">01</span>
+        <span>Задачи</span>
+        <span data-role="tabsub" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;opacity:.5;">ваш список</span>
+      </div>
+      <sc-if value="{{ isOperator }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ goAdmin }}" style="{{ tabAdminStyle }}">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;opacity:.62;">02</span>
+          <span>Администрирование</span>
+          <span data-role="tabsub" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;opacity:.5;">привилегированный</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="flex:1;"></div>
+
+    <div onClick="{{ toggleLive }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--fg3);">
+      <span style="{{ liveDotStyle }}"></span>{{ liveLabel }}
+    </div>
+
+    <div data-role="rolesw" style="display:flex;align-items:center;gap:9px;border-left:1px solid var(--line);padding-left:16px;flex:none;">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--fg3);text-transform:uppercase;">демо · роль</span>
+      <div style="display:flex;border:1px solid var(--line);">
+        <span onClick="{{ setRoleGuest }}" style="{{ roleGuestStyle }}">гость</span>
+        <span onClick="{{ setRoleUser }}" style="{{ roleUserStyle }}">пользователь</span>
+        <span onClick="{{ setRoleOperator }}" style="{{ roleOperatorStyle }}">оператор</span>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:none;display:flex;align-items:center;gap:12px;padding:8px 18px;border-bottom:1px solid var(--line-2);background:var(--surface);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.05em;color:var(--fg2);">
+      <span style="display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">
+        <span style="width:6px;height:6px;background:var(--fg3);"></span>только чтение
+      </span>
+      <span>гость видит задачи и переписку, но ничего не меняет: правка полей, отправка сообщений, приёмка и передача исполнителю недоступны</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showPrivBar }}" hint-placeholder-val="{{ false }}">
+    <div data-role="hatch" style="flex:none;display:flex;align-items:center;gap:14px;padding:8px 18px;border-bottom:1px solid var(--accent-line);background:var(--accent-soft);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--accent);">
+      <span style="display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;">
+        <span style="width:6px;height:6px;background:var(--accent);"></span>привилегированный контур
+      </span>
+      <span style="color:var(--fg2);">оператор <b style="color:var(--fg);font-weight:600;">operator@kz-central</b> · права: политика PACT + custody · пишет таблицы владельцев, правил, allowlist, секретов</span>
+      <span style="flex:1;"></span>
+      <span style="color:var(--fg2);">сессия оператора истекает через {{ opSessionLeft }}</span>
+      <span onClick="{{ goTasks }}" style="cursor:pointer;border:1px solid var(--accent-line);padding:3px 9px;color:var(--accent);">выйти к задачам</span>
+    </div>
+  </sc-if>
+
+  <div data-role="frame" style="flex:1;display:flex;min-height:0;position:relative;">
+
+    <!-- ═══════════ ЗАДАЧИ ═══════════ -->
+    <sc-if value="{{ isTasks }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="01 Задачи" style="flex:1;display:flex;flex-direction:column;min-width:0;">
+        <div style="flex:none;border-bottom:1px solid var(--line);padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--bg-2);">
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+            <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">01</span><span style="width:22px;height:1px;background:var(--line-2);"></span>список задач</span>
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;">Задачи</span>
+          </div>
+          <span style="flex:1;"></span>
+          <div style="display:flex;gap:2px;padding:3px;border:1px solid var(--line);background:var(--surface);">
+            <sc-for list="{{ taskViews }}" as="v" hint-placeholder-count="3">
+              <span onClick="{{ v.onPick }}" style="{{ v.style }}">{{ v.label }}</span>
+            </sc-for>
+          </div>
+          <sc-if value="{{ chatHidden }}" hint-placeholder-val="{{ false }}">
+            <span onClick="{{ showChat }}" style="cursor:pointer;border:1px solid var(--accent-line);color:var(--accent);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;" style-hover="background:var(--accent-soft)">чат Лины →</span>
+          </sc-if>
+          <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+            <span onClick="{{ newTask }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:9px 14px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.06)">+ Задача</span>
+          </sc-if>
+        </div>
+
+        <div style="flex:none;border-bottom:1px solid var(--line);padding:10px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--bg);">
+          <sc-for list="{{ taskFilters }}" as="g" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);">{{ g.label }}</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <sc-for list="{{ g.options }}" as="o" hint-placeholder-count="3">
+                  <span onClick="{{ o.onPick }}" style="{{ o.style }}">{{ o.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <span style="flex:1;"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);">{{ taskCountLabel }}</span>
+          <sc-if value="{{ filtersOn }}" hint-placeholder-val="{{ false }}">
+            <span onClick="{{ resetFilters }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);border-bottom:1px dashed var(--accent-line);">сбросить</span>
+          </sc-if>
+        </div>
+
+        <div data-role="tasksbody" style="position:relative;flex:1;display:flex;min-height:0;">
+          <div style="flex:1;overflow:auto;min-width:0;">
+
+            <!-- таблица -->
+            <sc-if value="{{ viewTable }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:18px 22px 40px;animation:rise .22s ease;">
+                <div style="border:1px solid var(--line);background:var(--surface);overflow-x:auto;min-width:0;">
+                  <div style="min-width:760px;display:grid;grid-template-columns:minmax(200px,1.9fr) 120px 130px 100px 110px 100px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                    <span data-role="cell">задача</span><span data-role="cell">владелец</span><span data-role="cell">статус</span><span data-role="cell">приоритет</span><span data-role="cell">срок</span><span data-role="cell">диалог</span>
+                  </div>
+                  <sc-for list="{{ taskRows }}" as="t" hint-placeholder-count="6">
+                    <div onClick="{{ t.onOpen }}" style="{{ t.rowStyle }}" style-hover="background:var(--surface-2)">
+                      <span data-role="cell" style="font-size:13px;color:var(--fg);display:flex;align-items:center;gap:9px;min-width:0;"><span style="{{ t.dotStyle }}"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.title }}</span></span>
+                      <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ t.owner }}</span>
+                      <span data-role="cell"><span style="{{ t.statusStyle }}">{{ t.statusLabel }}</span></span>
+                      <span data-role="cell"><span style="{{ t.prioStyle }}">{{ t.prio }}</span></span>
+                      <span data-role="cell" style="{{ t.dueStyle }}">{{ t.dueLabel }}</span>
+                      <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);">{{ t.dialogLabel }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- канбан -->
+            <sc-if value="{{ viewBoard }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:18px 22px 40px;display:flex;gap:14px;align-items:flex-start;min-width:0;animation:rise .22s ease;">
+                <sc-for list="{{ boardColumns }}" as="c" hint-placeholder-count="4">
+                  <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:9px;padding:0 2px;">
+                      <span style="{{ c.dotStyle }}"></span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg2);">{{ c.label }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);">{{ c.count }}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:9px;min-height:80px;border:1px dashed var(--line);padding:9px;">
+                      <sc-for list="{{ c.cards }}" as="t" hint-placeholder-count="2">
+                        <div onClick="{{ t.onOpen }}" style="{{ t.cardStyle }}" style-hover="border-color:var(--accent-line)">
+                          <span style="font-size:13px;line-height:1.45;color:var(--fg);">{{ t.title }}</span>
+                          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <span style="{{ t.prioStyle }}">{{ t.prio }}</span>
+                            <span style="{{ t.dueStyle }}">{{ t.dueLabel }}</span>
+                          </div>
+                          <div style="display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:8px;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.owner }} · {{ t.commentsLabel }}</span>
+                            <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+                              <span onClick="{{ t.onPrev }}" style="{{ t.moveStyle }}">←</span>
+                              <span onClick="{{ t.onNext }}" style="{{ t.moveStyle }}">→</span>
+                            </sc-if>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- таймлайн -->
+            <sc-if value="{{ viewTimeline }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:18px 22px 40px;animation:rise .22s ease;">
+                <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
+                  <div style="display:grid;grid-template-columns:250px 1fr;border-bottom:1px solid var(--line-2);background:var(--surface-2);">
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">задача · дедлайн</span>
+                    <div style="{{ timeline.headStyle }}">
+                      <sc-for list="{{ timeline.days }}" as="d" hint-placeholder-count="14">
+                        <span style="{{ d.style }}">{{ d.label }}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <sc-for list="{{ timeline.rows }}" as="t" hint-placeholder-count="6">
+                    <div onClick="{{ t.onOpen }}" style="display:grid;grid-template-columns:250px 1fr;border-bottom:1px solid var(--line);cursor:pointer;" style-hover="background:var(--surface-2)">
+                      <span data-role="cell" style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+                        <span style="font-size:12.5px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.title }}</span>
+                        <span style="{{ t.dueStyle }}">{{ t.dueLabel }}</span>
+                      </span>
+                      <div style="{{ timeline.gridStyle }}">
+                        <sc-for list="{{ timeline.days }}" as="d" hint-placeholder-count="14">
+                          <span style="{{ d.cellStyle }}"></span>
+                        </sc-for>
+                        <span style="{{ t.barStyle }}">{{ t.barLabel }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:16px;padding:12px 2px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);flex-wrap:wrap;">
+                  <span>сегодня — левая граница</span><span>полоса — от старта до дедлайна</span><span style="color:var(--danger);">красная — просрочено</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- чат с Линой по задаче -->
+          <sc-if value="{{ chatShown }}" hint-placeholder-val="{{ true }}">
+          <div data-role="chatpanel" style="width:470px;flex:none;border-left:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;min-width:0;">
+            <sc-if value="{{ chat.exists }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:none;border-bottom:1px solid var(--line);padding:13px 16px;display:flex;flex-direction:column;gap:9px;">
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">лина · диалог задачи</span>
+                  <span style="flex:1;"></span>
+                  <span onClick="{{ chat.onCard }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);border:1px solid var(--line-2);padding:4px 8px;" style-hover="color:var(--fg);border-color:var(--fg3)">карточка ↗</span>
+                  <span onClick="{{ hideChat }}" title="скрыть чат" style="cursor:pointer;color:var(--fg3);font-size:15px;line-height:1;padding:0 2px;" style-hover="color:var(--fg)">✕</span>
+                </div>
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;line-height:1.35;">{{ chat.title }}</span>
+                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+                  <span style="{{ chat.statusStyle }}">{{ chat.statusLabel }}</span>
+                  <span style="{{ chat.prioStyle }}">{{ chat.prio }}</span>
+                  <span style="{{ chat.dueStyle }}">{{ chat.dueLabel }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ chat.owner }}</span>
+                </div>
+              </div>
+
+              <div style="flex:1;overflow:auto;min-height:0;padding:16px;display:flex;flex-direction:column;gap:14px;">
+                <sc-if value="{{ chat.fresh }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:12px;animation:rise .25s ease;">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">диалог не начат</span>
+                    <span style="font-size:13px;line-height:1.65;color:var(--fg2);text-wrap:pretty;">Обсудите задачу здесь. Ассистент правит поля до передачи исполнителю: напишите «срок 25.08», «владелец kz-central», «приоритет высокий», «статус в работе» или «переименуй …».</span>
+                    <div style="border:1px dashed var(--accent-line);background:var(--surface);padding:12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.75;color:var(--fg2);white-space:pre-line;">{{ chat.linaText }}</div>
+                  </div>
+                </sc-if>
+
+                <sc-for list="{{ chat.messages }}" as="m" hint-placeholder-count="4">
+                  <div style="animation:rise .25s ease;">
+                    <sc-if value="{{ m.isYou }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--fg3);">ВЫ · {{ m.time }}</span>
+                        <div style="max-width:88%;border:1px solid var(--line-2);background:var(--surface-2);padding:10px 13px;font-size:13.5px;line-height:1.6;color:var(--fg);white-space:pre-line;">{{ m.text }}</div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isReply }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-direction:column;gap:4px;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--accent);">LINA · {{ m.time }}</span>
+                        <span style="font-size:13.5px;line-height:1.65;color:var(--fg);white-space:pre-line;">{{ m.text }}</span>
+                        <sc-if value="{{ m.redelivered }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);border-left:2px solid var(--line-2);padding-left:9px;">доставлено повторно — это тот же ответ, не новый</span>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.6;color:var(--fg3);white-space:pre-line;">{{ m.text }}</span>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isQuestion }}" hint-placeholder-val="{{ false }}">
+                      <div style="border:1px solid var(--accent-line);background:var(--accent-soft);display:flex;flex-direction:column;">
+                        <div style="padding:12px 13px 11px;display:flex;flex-direction:column;gap:8px;">
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">уточняющий вопрос · поле {{ m.field }}</span>
+                          <span style="font-size:13.5px;line-height:1.6;color:var(--fg);">{{ m.text }}</span>
+                        </div>
+                        <sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;gap:8px;padding:0 13px 12px;">
+                            <input value="{{ answer }}" onInput="{{ onAnswer }}" onKeyDown="{{ onAnswerKey }}" placeholder="{{ m.placeholder }}" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:13px;padding:9px 11px;">
+                            <span onClick="{{ m.onSend }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:9px 13px;font-size:12px;font-weight:600;display:flex;align-items:center;" style-hover="filter:brightness(1.06)">Ответить</span>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.answered }}" hint-placeholder-val="{{ false }}">
+                          <span style="padding:0 13px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);">✓ поле заполнено: {{ m.answerText }}</span>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isEscalation }}" hint-placeholder-val="{{ false }}">
+                      <div style="border:1px solid var(--line-2);border-left:2px solid var(--warn);background:var(--surface);padding:12px 13px;display:flex;flex-direction:column;gap:8px;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--warn);">нужен человек · {{ m.reason }}</span>
+                        <span style="font-size:13px;line-height:1.6;color:var(--fg);">{{ m.text }}</span>
+                        <sc-if value="{{ isOperator }}" hint-placeholder-val="{{ true }}">
+                          <span onClick="{{ m.onOpenView }}" style="align-self:flex-start;cursor:pointer;border:1px solid var(--warn);color:var(--warn);padding:6px 11px;font-family:'JetBrains Mono',monospace;font-size:10.5px;" style-hover="background:var(--warn-soft)">открыть просмотр экрана →</span>
+                        </sc-if>
+                        <sc-if value="{{ isUser }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);line-height:1.55;">Просмотр экрана доступен оператору. Ответ придёт сюда.</span>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isEphemeral }}" hint-placeholder-val="{{ false }}">
+                      <div style="border:1px dashed var(--line-2);background:var(--surface);padding:12px 13px;display:flex;flex-direction:column;gap:10px;">
+                        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--warn);border:1px solid var(--warn);padding:2px 7px;">одноразовое</span>
+                          <span style="font-size:12.5px;color:var(--fg2);">{{ m.label }}</span>
+                        </div>
+                        <sc-if value="{{ m.hidden }}" hint-placeholder-val="{{ true }}">
+                          <div style="display:flex;flex-direction:column;gap:8px;">
+                            <span onClick="{{ m.onReveal }}" style="align-self:flex-start;cursor:pointer;background:var(--surface-2);border:1px solid var(--line-2);color:var(--fg);padding:8px 14px;font-size:12.5px;font-weight:600;" style-hover="border-color:var(--accent-line)">Показать</span>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);line-height:1.55;">Значение показывается один раз. После показа оно стирается и повторно не выдаётся.</span>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.revealed }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;flex-direction:column;gap:7px;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg);background:var(--bg);border:1px solid var(--accent-line);padding:10px 12px;word-break:break-all;">{{ m.value }}</span>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--warn);">значение стёрто на сервере · закройте вкладку — и оно потеряно</span>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.burned }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);background:var(--bg);border:1px solid var(--line);padding:10px 12px;">значение уже показано и повторно не выдаётся</span>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isRefusal }}" hint-placeholder-val="{{ false }}">
+                      <div style="border:1px solid var(--danger);background:var(--danger-soft);padding:12px 13px;display:flex;flex-direction:column;gap:7px;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--danger);">{{ m.kindLabel }}</span>
+                        <span style="font-size:13.5px;line-height:1.6;color:var(--fg);">{{ m.text }}</span>
+                        <span style="font-size:12.5px;line-height:1.55;color:var(--fg2);">{{ m.hint }}</span>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ m.isResult }}" hint-placeholder-val="{{ false }}">
+                      <div style="border:1px solid var(--line-2);background:var(--surface);">
+                        <div style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--surface-2);">
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ok);">результат</span>
+                          <span style="flex:1;"></span>
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--fg3);">{{ m.time }} · проверен egress PACT</span>
+                        </div>
+                        <div style="padding:13px;display:flex;flex-direction:column;gap:11px;">
+                          <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;color:var(--fg);line-height:1.35;">{{ m.title }}</span>
+                          <span style="font-size:13px;line-height:1.6;color:var(--fg2);">{{ m.text }}</span>
+                          <div style="display:flex;flex-wrap:wrap;gap:7px;">
+                            <sc-for list="{{ m.artifacts }}" as="a" hint-placeholder-count="2">
+                              <span style="display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--bg);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg2);">
+                                <span style="color:var(--accent);">{{ a.icon }}</span>{{ a.name }}<span style="color:var(--fg3);">{{ a.meta }}</span>
+                              </span>
+                            </sc-for>
+                          </div>
+                        </div>
+                        <sc-if value="{{ m.pending }}" hint-placeholder-val="{{ true }}">
+                          <div style="border-top:1px solid var(--line);padding:11px 13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--fg3);">приёмка</span>
+                            <span style="flex:1;"></span>
+                            <span onClick="{{ m.onAccept }}" style="cursor:pointer;background:var(--ok);color:#06231A;padding:8px 15px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.06)">Принять</span>
+                            <span onClick="{{ m.onReject }}" style="cursor:pointer;border:1px solid var(--danger);color:var(--danger);padding:7px 14px;font-size:12.5px;font-weight:600;" style-hover="background:var(--danger-soft)">Не принять</span>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.rejecting }}" hint-placeholder-val="{{ false }}">
+                          <div style="border-top:1px solid var(--danger);background:var(--danger-soft);padding:12px 13px;display:flex;flex-direction:column;gap:9px;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.06em;color:var(--danger);text-transform:uppercase;">причина обязательна</span>
+                            <textarea value="{{ rejectReason }}" onInput="{{ onRejectReason }}" placeholder="Что именно не так с результатом" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:9px 11px;resize:vertical;"></textarea>
+                            <div style="display:flex;gap:9px;align-items:center;">
+                              <span onClick="{{ m.onConfirmReject }}" style="{{ rejectBtnStyle }}">Отправить отказ</span>
+                              <span onClick="{{ m.onCancelReject }}" style="cursor:pointer;color:var(--fg3);font-size:12.5px;" style-hover="color:var(--fg)">Отмена</span>
+                            </div>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.decided }}" hint-placeholder-val="{{ false }}">
+                          <div style="{{ m.decidedStyle }}">{{ m.decidedText }}</div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ chat.working }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:11px;align-items:center;">
+                    <span style="position:relative;display:block;width:100px;height:2px;background:var(--line-2);overflow:hidden;">
+                      <span style="position:absolute;inset:0 auto 0 0;width:28px;background:var(--accent);animation:sweep 1.4s linear infinite;"></span>
+                    </span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);">система работает · ждём ответа</span>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="flex:none;border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px;">
+                <sc-if value="{{ chat.canHandover }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:11px;">
+                    <span onClick="{{ chat.onHandover }}" style="{{ chat.handoverStyle }}">Передать исполнителю →</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--fg3);line-height:1.5;flex:1;">Уйдёт текст задачи. После передачи поля меняет только диалог.</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ chat.handed }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--fg3);border:1px solid var(--line);padding:7px 10px;">задача передана исполнителю · поля зафиксированы</span>
+                </sc-if>
+                <sc-if value="{{ chat.quickOn }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                    <sc-for list="{{ chat.quick }}" as="q" hint-placeholder-count="3">
+                      <span onClick="{{ q.onPick }}" style="{{ q.style }}">{{ q.label }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:9px;align-items:center;">
+                    <div style="flex:1;min-width:0;border:1px solid var(--line-2);background:var(--surface);display:flex;align-items:center;gap:9px;padding:10px 12px;">
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);">›</span>
+                      <input value="{{ composer }}" onInput="{{ onComposer }}" onKeyDown="{{ onComposerKey }}" placeholder="{{ chat.placeholder }}" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--fg);font-size:13.5px;">
+                    </div>
+                    <span onClick="{{ onSend }}" style="{{ sendBtnStyle }}">Отправить</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);border:1px solid var(--line);padding:9px 11px;line-height:1.5;">режим только чтения · отправка сообщений недоступна</span>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ chat.none }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;flex-direction:column;gap:11px;align-items:center;justify-content:center;padding:40px 26px;text-align:center;">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);">задача не выбрана</span>
+                <span style="font-size:13px;line-height:1.65;color:var(--fg2);max-width:280px;">Выберите задачу — здесь откроется диалог Лины по ней: уточнения, правка полей, результат и приёмка.</span>
+              </div>
+            </sc-if>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── Карточка задачи (модальное окно) ── -->
+    <sc-if value="{{ card.open }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:45;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:26px;" onClick="{{ card.onClose }}">
+        <div data-screen-label="01 Задача · карточка" style="width:660px;max-width:100%;max-height:88%;background:var(--surface);border:1px solid var(--line-2);display:flex;flex-direction:column;animation:rise .2s ease;" onClick="{{ card.stop }}">
+          <div style="flex:none;padding:15px 20px;border-bottom:1px solid var(--line-2);background:var(--surface-2);display:flex;flex-direction:column;gap:11px;">
+            <div style="display:flex;align-items:center;gap:11px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">карточка задачи · {{ card.id }}</span>
+              <span style="flex:1;"></span>
+              <span onClick="{{ card.onClose }}" style="cursor:pointer;color:var(--fg3);font-size:16px;line-height:1;" style-hover="color:var(--fg)">✕</span>
+            </div>
+            <input value="{{ card.title }}" onInput="{{ card.onTitleInput }}" readOnly="{{ readOnly }}" style="width:100%;background:transparent;border:none;border-bottom:1px dashed var(--line);outline:none;color:var(--fg);font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;padding:2px 0 6px;" style-focus="border-bottom-color:var(--accent)">
+          </div>
+
+          <div style="flex:1;overflow:auto;min-height:0;padding:18px 20px;display:flex;flex-direction:column;gap:20px;">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ card.editors }}" as="f" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="width:84px;flex:none;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">{{ f.label }}</span>
+                  <sc-if value="{{ f.isPicker }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0;">
+                      <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3">
+                        <span onClick="{{ o.onPick }}" style="{{ o.style }}">{{ o.label }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.isDate }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:11px;flex:1;min-width:0;">
+                      <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+                        <input value="{{ f.value }}" onInput="{{ f.onInput }}" type="date" style="background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:6px 9px;color-scheme:dark;">
+                      </sc-if>
+                      <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg);border:1px solid var(--line);padding:6px 9px;">{{ f.value }}</span>
+                      </sc-if>
+                      <span style="{{ f.noteStyle }}">{{ f.note }}</span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);">описание</span>
+              <textarea value="{{ card.desc }}" onInput="{{ card.onDescInput }}" readOnly="{{ readOnly }}" rows="4" style="width:100%;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg2);font-family:'Inter',sans-serif;font-size:13px;line-height:1.65;padding:11px 12px;resize:vertical;" style-focus="border-color:var(--accent-line);color:var(--fg)"></textarea>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;gap:9px;">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">текст задачи для Lina</span>
+                <span style="flex:1;height:1px;background:var(--line);"></span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--fg3);">{{ card.linaState }}</span>
+              </div>
+              <textarea value="{{ card.linaText }}" onInput="{{ card.onLinaInput }}" readOnly="{{ readOnly }}" rows="6" style="width:100%;background:var(--bg);border:1px solid var(--accent-line);outline:none;color:var(--fg);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;padding:12px;resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);">комментарии · {{ card.commentCount }}</span>
+              <sc-for list="{{ card.comments }}" as="c" hint-placeholder-count="2">
+                <div style="display:flex;flex-direction:column;gap:5px;border-left:2px solid var(--line-2);padding-left:11px;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);">{{ c.author }} · {{ c.time }}</span>
+                  <span style="font-size:13px;line-height:1.6;color:var(--fg2);">{{ c.text }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:8px;">
+                  <input value="{{ comment }}" onInput="{{ onComment }}" onKeyDown="{{ onCommentKey }}" placeholder="Комментарий к задаче" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-size:12.5px;padding:9px 11px;">
+                  <span onClick="{{ card.onComment }}" style="{{ card.commentBtnStyle }}">Добавить</span>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="flex:none;border-top:1px solid var(--line-2);padding:13px 20px;display:flex;align-items:center;gap:11px;background:var(--surface-2);">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--fg3);flex:1;line-height:1.5;">{{ card.footNote }}</span>
+            <span onClick="{{ card.onClose }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:9px 15px;font-size:12.5px;" style-hover="border-color:var(--fg3)">Закрыть</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ═══════════ АДМИНИСТРИРОВАНИЕ ═══════════ -->
+    <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+      <div data-role="adminnav" style="width:246px;flex:none;border-right:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;min-width:0;">
+        <div style="padding:14px 14px 10px;display:flex;flex-direction:column;gap:3px;">
+          <sc-for list="{{ adminNav }}" as="n" hint-placeholder-count="4">
+            <div onClick="{{ n.onOpen }}" style="{{ n.style }}" style-hover="background:var(--surface)">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);width:18px;flex:none;">{{ n.num }}</span>
+              <span data-role="navlabel" style="flex:1;">{{ n.label }}</span>
+              <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}">
+                <span data-role="navlabel" style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--accent-fill);color:var(--accent-fill-fg);padding:1px 6px;font-weight:600;">{{ n.badge }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div data-role="navlabel" style="margin-top:auto;border-top:1px solid var(--line);padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:9.5px;line-height:1.7;color:var(--fg3);">
+          в следующей итерации:<br>обзор · клиенты · сессии
+        </div>
+      </div>
+
+      <div style="flex:1;overflow:auto;min-height:0;">
+
+        <!-- ── Сервисы и правила ── -->
+        <sc-if value="{{ isServices }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="02.1 Сервисы и правила" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
+            <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:7px;min-width:0;">
+                <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.1</span><span style="width:22px;height:1px;background:var(--line-2);"></span>политика PACT</span>
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Сервисы и правила</span>
+              </div>
+              <span style="flex:1;"></span>
+              <span onClick="{{ openEndpointWizard }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.08)">+ Разрешить эндпоинт</span>
+            </div>
+
+            <div style="border:1px solid var(--line-2);background:var(--warn-soft);padding:11px 14px;display:flex;gap:11px;align-items:baseline;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--warn);text-transform:uppercase;flex:none;">умолчание</span>
+              <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);">Пустой список = запрещено всё. Разрешение не должно быть грубее действия: указывайте префиксы путей, а не хост целиком.</span>
+            </div>
+
+            <div style="display:flex;gap:2px;border:1px solid var(--line);background:var(--surface);padding:3px;align-self:flex-start;">
+              <sc-for list="{{ serviceTabs }}" as="t" hint-placeholder-count="3">
+                <span onClick="{{ t.onPick }}" style="{{ t.style }}">{{ t.label }}<span style="opacity:.5;margin-left:7px;font-family:'JetBrains Mono',monospace;font-size:10px;">{{ t.count }}</span></span>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ tabAllow }}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
+                <div style="display:grid;grid-template-columns:150px 1.4fr 150px 1.3fr 120px 70px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                  <span data-role="cell">владелец</span><span data-role="cell">хост</span><span data-role="cell">методы</span><span data-role="cell">префиксы путей</span><span data-role="cell">операция</span><span data-role="cell">версия</span>
+                </div>
+                <sc-for list="{{ allowRows }}" as="r" hint-placeholder-count="5">
+                  <div style="{{ r.rowStyle }}" style-hover="background:var(--surface-2)">
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.owner }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);">{{ r.host }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.methods }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.paths }}</span>
+                    <span data-role="cell"><span style="{{ r.opStyle }}">{{ r.op }}</span></span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);">{{ r.version }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ tabIrr }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
+                <div style="display:grid;grid-template-columns:1.6fr 160px 1fr 80px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                  <span data-role="cell">хост</span><span data-role="cell">тип операции</span><span data-role="cell">классификация</span><span data-role="cell">версия</span>
+                </div>
+                <sc-for list="{{ irrRows }}" as="r" hint-placeholder-count="4">
+                  <div style="{{ r.rowStyle }}" style-hover="background:var(--surface-2)">
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);">{{ r.host }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.op }}</span>
+                    <span data-role="cell"><span style="{{ r.clsStyle }}">{{ r.cls }}</span></span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);">{{ r.version }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ tabRules }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
+                <div style="display:grid;grid-template-columns:1.2fr 130px 1.5fr 90px 100px 110px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                  <span data-role="cell">отправитель</span><span data-role="cell">владелец</span><span data-role="cell">capabilities</span><span data-role="cell">исполнитель</span><span data-role="cell">лизинг</span><span data-role="cell">approval</span>
+                </div>
+                <sc-for list="{{ ruleRows }}" as="r" hint-placeholder-count="4">
+                  <div style="{{ r.rowStyle }}" style-hover="background:var(--surface-2)">
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.sender }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.owner }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg);">{{ r.caps }}</span>
+                    <span data-role="cell"><span style="{{ r.execStyle }}">{{ r.exec }}</span></span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ r.lease }}</span>
+                    <span data-role="cell"><span style="{{ r.apprStyle }}">{{ r.appr }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ── Секреты ── -->
+        <sc-if value="{{ isSecrets }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.2 Секреты · custody" style="padding:0 0 40px;animation:rise .25s ease;">
+            <div data-role="hatch" style="border-bottom:1px solid var(--danger);background:var(--danger-soft);padding:14px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--danger);font-weight:600;display:flex;align-items:center;gap:8px;"><span style="width:6px;height:6px;background:var(--danger);"></span>сейф · custody</span>
+              <span style="font-size:12.5px;color:var(--fg2);line-height:1.55;">Значения секретов не хранятся в открытом виде и здесь не показываются — ни оператору, ни в журнале. Видны только имена, владелец и назначение.</span>
+            </div>
+
+            <div style="padding:22px 24px;display:flex;flex-direction:column;gap:18px;">
+              <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;">
+                <div style="display:flex;flex-direction:column;gap:7px;">
+                  <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--danger);">2.2</span><span style="width:22px;height:1px;background:var(--line-2);"></span>custody PACT</span>
+                  <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Секреты</span>
+                </div>
+                <span style="flex:1;"></span>
+                <span onClick="{{ openSecretWizard }}" style="cursor:pointer;border:1px solid var(--danger);background:var(--danger-soft);color:var(--danger);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="background:var(--danger);color:#2B0E12">+ Внести / обновить секрет</span>
+              </div>
+
+              <div style="border:1px solid var(--line-2);background:var(--surface);overflow:hidden;">
+                <div style="display:grid;grid-template-columns:1.3fr 150px 1.4fr 130px 110px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                  <span data-role="cell">имя</span><span data-role="cell">владелец</span><span data-role="cell">назначение</span><span data-role="cell">обновлён</span><span data-role="cell"></span>
+                </div>
+                <sc-for list="{{ secretRows }}" as="s" hint-placeholder-count="4">
+                  <div style="{{ s.rowStyle }}" style-hover="background:var(--surface-2)">
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);display:flex;align-items:center;gap:9px;"><span style="color:var(--danger);">▮</span>{{ s.name }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ s.owner }}</span>
+                    <span data-role="cell" style="font-size:12.5px;color:var(--fg2);">{{ s.purpose }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg3);">{{ s.updated }}</span>
+                    <span data-role="cell" style="display:flex;justify-content:flex-end;"><span onClick="{{ s.onDelete }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">удалить</span></span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);line-height:1.7;">Секрет выдаётся исполнителю только арбитром и только на срок лизинга. Оператор вносит значение, но прочитать его обратно не может.</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ── Подтверждения ── -->
+        <sc-if value="{{ isApprovals }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.3 Подтверждения" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.3</span><span style="width:22px;height:1px;background:var(--line-2);"></span>доверенный путь</span>
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Подтверждения необратимых действий</span>
+            </div>
+
+            <div data-role="twocol" style="display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start;">
+              <div style="border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;">
+                <div style="padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);">очередь<span style="color:var(--accent);">{{ approvalCount }}</span></div>
+                <sc-for list="{{ approvalRows }}" as="a" hint-placeholder-count="3">
+                  <div onClick="{{ a.onOpen }}" style="{{ a.style }}" style-hover="background:var(--surface-2)">
+                    <div style="display:flex;align-items:center;gap:9px;">
+                      <span style="font-size:13px;font-weight:600;color:var(--fg);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.title }}</span>
+                      <span style="{{ a.ttlStyle }}">{{ a.ttl }}</span>
+                    </div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ a.host }} · {{ a.op }} · {{ a.owner }}</div>
+                    <sc-if value="{{ a.decided }}" hint-placeholder-val="{{ false }}">
+                      <span style="{{ a.decidedStyle }}">{{ a.decidedLabel }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ approvalsEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:34px 18px;text-align:center;font-size:12.5px;color:var(--fg2);line-height:1.6;">Очередь пуста — ничего не ждёт вашего решения.</div>
+                </sc-if>
+              </div>
+
+              <div style="border:1px solid var(--accent-line);background:var(--surface);min-height:300px;">
+                <sc-if value="{{ approval.exists }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line-2);background:var(--accent-soft);">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;">одноразовая ссылка</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ approval.token }}</span>
+                    <span style="flex:1;"></span>
+                    <span style="{{ approval.ttlStyle }}">действительна {{ approval.ttl }}</span>
+                  </div>
+                  <div style="padding:20px 18px;display:flex;flex-direction:column;gap:16px;">
+                    <span style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;line-height:1.3;">{{ approval.title }}</span>
+                    <div style="display:grid;grid-template-columns:max-content 1fr;gap:9px 22px;font-size:13px;">
+                      <sc-for list="{{ approval.facts }}" as="f" hint-placeholder-count="6">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--fg3);text-transform:uppercase;padding-top:2px;">{{ f.k }}</span>
+                        <span style="{{ f.vStyle }}">{{ f.v }}</span>
+                      </sc-for>
+                    </div>
+                    <div style="border:1px solid var(--danger);background:var(--danger-soft);padding:12px 14px;display:flex;gap:11px;align-items:baseline;">
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--danger);flex:none;">необратимо</span>
+                      <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);">После подтверждения действие отменить нельзя. Решение по ссылке принимается один раз: повторное открытие даст отказ, истёкшая ссылка не продлевается.</span>
+                    </div>
+                    <sc-if value="{{ approval.pending }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;">
+                        <span onClick="{{ approval.onApprove }}" style="cursor:pointer;background:var(--ok);color:#06231A;padding:11px 22px;font-size:13px;font-weight:600;" style-hover="filter:brightness(1.08)">Подтвердить</span>
+                        <span onClick="{{ approval.onDeny }}" style="cursor:pointer;border:1px solid var(--danger);color:var(--danger);padding:10px 21px;font-size:13px;font-weight:600;" style-hover="background:var(--danger-soft)">Отказать</span>
+                        <span style="flex:1;"></span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);">решение уходит в PACT транзакцией вместе с событием</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ approval.done }}" hint-placeholder-val="{{ false }}">
+                      <div style="{{ approval.doneStyle }}">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;">{{ approval.doneLabel }}</span>
+                        <span style="font-size:12.5px;line-height:1.6;">{{ approval.doneText }}</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ approval.none }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:60px 24px;text-align:center;display:flex;flex-direction:column;gap:11px;align-items:center;">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);">решение не выбрано</span>
+                    <span style="font-size:13px;color:var(--fg2);max-width:360px;line-height:1.6;">Выберите подтверждение из очереди. Страница по одноразовой ссылке показывает ровно одно решение и не даёт обзора очереди.</span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ── Просмотр экрана ── -->
+        <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.4 Просмотр экрана" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
+            <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:7px;">
+                <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.4</span><span style="width:22px;height:1px;background:var(--line-2);"></span>human-view · MITA</span>
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Просмотр экрана браузера</span>
+              </div>
+            </div>
+
+            <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
+              <div style="display:grid;grid-template-columns:130px 150px 1fr 1.1fr 190px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                <span data-role="cell">инстанс</span><span data-role="cell">владелец</span><span data-role="cell">хост</span><span data-role="cell">состояние</span><span data-role="cell">сеанс просмотра</span>
+              </div>
+              <sc-for list="{{ instanceRows }}" as="i" hint-placeholder-count="3">
+                <div style="{{ i.rowStyle }}">
+                  <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);">{{ i.id }}</span>
+                  <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ i.owner }}</span>
+                  <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">{{ i.host }}</span>
+                  <span data-role="cell"><span style="{{ i.stateStyle }}">{{ i.state }}</span></span>
+                  <span data-role="cell" style="display:flex;justify-content:flex-end;">
+                    <sc-if value="{{ i.canIssue }}" hint-placeholder-val="{{ true }}">
+                      <span onClick="{{ i.onIssue }}" style="cursor:pointer;border:1px solid var(--accent-line);color:var(--accent);padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;" style-hover="background:var(--accent-soft)">Открыть просмотр</span>
+                    </sc-if>
+                    <sc-if value="{{ i.active }}" hint-placeholder-val="{{ false }}">
+                      <span onClick="{{ i.onRevoke }}" style="cursor:pointer;border:1px solid var(--danger);color:var(--danger);padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;" style-hover="background:var(--danger-soft)">Погасить</span>
+                    </sc-if>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ view.active }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--accent-line);background:var(--surface);animation:rise .25s ease;">
+                <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line-2);background:var(--accent-soft);flex-wrap:wrap;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;">одноразовая ссылка · {{ view.instance }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg2);background:var(--bg);border:1px solid var(--line-2);padding:5px 9px;">{{ view.link }}</span>
+                  <span onClick="{{ view.onCopy }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--accent)">{{ view.copyLabel }}</span>
+                  <span style="flex:1;"></span>
+                  <span style="{{ view.ttlStyle }}">гаснет через {{ view.ttl }}</span>
+                  <span onClick="{{ view.onRevoke }}" style="cursor:pointer;border:1px solid var(--danger);color:var(--danger);padding:5px 11px;font-family:'JetBrains Mono',monospace;font-size:10.5px;" style-hover="background:var(--danger-soft)">Погасить</span>
+                </div>
+                <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                  <div style="position:relative;height:340px;border:1px solid var(--line-2);background:var(--bg);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.022) 0 12px,transparent 12px 24px);display:flex;align-items:center;justify-content:center;">
+                    <div style="display:flex;flex-direction:column;gap:9px;align-items:center;">
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">VNC-поток экрана {{ view.instance }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">вставляется через websockify · масштабирование по окну</span>
+                    </div>
+                    <span style="position:absolute;left:0;top:0;width:14px;height:14px;border-top:1.5px solid var(--accent);border-left:1.5px solid var(--accent);"></span>
+                    <span style="position:absolute;right:0;bottom:0;width:14px;height:14px;border-bottom:1.5px solid var(--accent);border-right:1.5px solid var(--accent);"></span>
+                  </div>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);line-height:1.7;">Ссылка заявляется первым открытием и привязывается к одному зрителю: второй с той же ссылкой получит отказ. Продление не предусмотрено — истечение прекращает просмотр так же, как гашение.</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ── Мастер (drawer) ── -->
+    <sc-if value="{{ wizard.open }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:40;background:rgba(0,0,0,0.55);display:flex;justify-content:flex-end;" onClick="{{ wizard.onBackdrop }}">
+        <div style="{{ wizard.panelStyle }}" onClick="{{ wizard.stop }}">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:12px;background:var(--surface-2);">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">шаг {{ wizard.step }} из {{ wizard.total }}</span>
+            <span style="flex:1;"></span>
+            <span onClick="{{ wizard.onClose }}" style="cursor:pointer;color:var(--fg3);font-size:16px;line-height:1;" style-hover="color:var(--fg)">✕</span>
+          </div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow:auto;flex:1;min-height:0;">
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;line-height:1.3;">{{ wizard.title }}</span>
+            <sc-if value="{{ wizard.warn }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--danger);background:var(--danger-soft);padding:12px 14px;font-size:12.5px;line-height:1.6;color:var(--fg2);">{{ wizard.warnText }}</div>
+            </sc-if>
+            <sc-for list="{{ wizard.fields }}" as="f" hint-placeholder-count="3">
+              <label style="display:flex;flex-direction:column;gap:7px;">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">{{ f.label }}</span>
+                <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}">
+                  <input value="{{ f.value }}" onInput="{{ f.onInput }}" type="{{ f.type }}" placeholder="{{ f.placeholder }}" style="background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;">
+                </sc-if>
+                <sc-if value="{{ f.isChoice }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3">
+                      <span onClick="{{ o.onPick }}" style="{{ o.style }}">{{ o.label }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.hint }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);line-height:1.6;">{{ f.hintText }}</span>
+                </sc-if>
+                <sc-if value="{{ f.error }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--danger);">✗ {{ f.errorText }}</span>
+                </sc-if>
+              </label>
+            </sc-for>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--line-2);display:flex;align-items:center;gap:11px;background:var(--surface-2);">
+            <sc-if value="{{ wizard.canBack }}" hint-placeholder-val="{{ false }}">
+              <span onClick="{{ wizard.onBack }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:9px 15px;font-size:12.5px;" style-hover="border-color:var(--fg3)">Назад</span>
+            </sc-if>
+            <span style="flex:1;"></span>
+            <span onClick="{{ wizard.onNext }}" style="{{ wizard.nextStyle }}">{{ wizard.nextLabel }}</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── Подтверждение удаления ── -->
+    <sc-if value="{{ confirm.open }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:50;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:24px;">
+        <div style="width:460px;max-width:100%;border:1px solid var(--danger);background:var(--surface);animation:rise .2s ease;">
+          <div data-role="hatch" style="padding:12px 18px;border-bottom:1px solid var(--danger);background:var(--danger-soft);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--danger);font-weight:600;">необратимое действие</div>
+          <div style="padding:20px 18px;display:flex;flex-direction:column;gap:14px;">
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:600;">{{ confirm.title }}</span>
+            <span style="font-size:13px;line-height:1.65;color:var(--fg2);">{{ confirm.text }}</span>
+            <div style="display:flex;gap:11px;align-items:center;">
+              <span onClick="{{ confirm.onConfirm }}" style="cursor:pointer;background:var(--danger);color:#2B0E12;padding:10px 18px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.1)">{{ confirm.confirmLabel }}</span>
+              <span onClick="{{ confirm.onCancel }}" style="cursor:pointer;color:var(--fg3);font-size:12.5px;padding:10px 6px;" style-hover="color:var(--fg)">Отмена</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="position:absolute;right:18px;bottom:18px;z-index:60;display:flex;flex-direction:column;gap:9px;align-items:flex-end;pointer-events:none;">
+      <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+        <div style="{{ t.style }}">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">{{ t.label }}</span>
+          <span style="font-size:12.5px;line-height:1.5;color:var(--fg);">{{ t.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;role&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;operator&quot;,&quot;user&quot;,&quot;guest&quot;],&quot;default&quot;:&quot;operator&quot;,&quot;tsType&quot;:&quot;'operator'|'user'|'guest'&quot;,&quot;section&quot;:&quot;Роль и права&quot;},&quot;privilegeMarker&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;full&quot;,&quot;bar&quot;,&quot;tint&quot;],&quot;default&quot;:&quot;full&quot;,&quot;tsType&quot;:&quot;'full'|'bar'|'tint'&quot;,&quot;section&quot;:&quot;Роль и права&quot;},&quot;live&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Поведение&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;medium&quot;,&quot;roomy&quot;],&quot;default&quot;:&quot;medium&quot;,&quot;tsType&quot;:&quot;'compact'|'medium'|'roomy'&quot;,&quot;section&quot;:&quot;Поведение&quot;}}">
+class Component extends DCLogic {
+  state = {
+    zone: 'tasks', adminScreen: 'services', servicesTab: 'allow',
+    taskView: 'table', selectedTask: 't1', comment: '',
+    fOwner: 'all', fStatus: 'all', fDue: 'all', cardOpen: false,
+    tasks: [
+      { id:'t1', title:'Подключить выгрузку учеников из GetCourse', owner:'acme-school', status:'todo', prio:'высокий',
+        start:'2026-08-21', due:'2026-08-22', dialogId:'d1',
+        desc:'Школа просит регулярную выгрузку учеников курса «Основы». Нужен CSV с именем, почтой, датой зачисления и прогрессом; ссылка на файл живёт сутки.',
+        lina:'цель: выгрузить список учеников курса «Основы» в CSV\nвладелец: acme-school\nкритерии приёмки: файл со всеми учениками курса; ссылка на скачивание действует 24 часа',
+        comments:[{author:'Андрей',time:'вчера 18:20',text:'Проверить, что в выгрузку не попадают удалённые аккаунты.'},
+                  {author:'Андрей',time:'сегодня 09:05',text:'Школа просит колонку с прогрессом в процентах.'}] },
+      { id:'t2', title:'Обновить A-запись lp.acme-school.ru', owner:'kz-central', status:'doing', prio:'высокий',
+        start:'2026-08-20', due:'2026-08-21', dialogId:'d2',
+        desc:'Лендинг переехал на новый адрес 91.201.14.77. Старая запись должна быть удалена — операция необратимая, потребуется подтверждение оператора.',
+        lina:'цель: заменить A-запись lp.acme-school.ru на 91.201.14.77\nвладелец: kz-central\nкритерии приёмки: запись отдаёт новый адрес с двух DNS-серверов',
+        comments:[{author:'Андрей',time:'вчера 11:40',text:'TTL заранее снизили до 300 секунд.'}] },
+      { id:'t3', title:'Выставить счёт «Академии» за август', owner:'acme-school', status:'doing', prio:'обычный',
+        start:'2026-08-21', due:'2026-08-25', dialogId:'d3',
+        desc:'Счёт по договору 14-К, отправка на buh@acme-school.ru. Отправка письма классифицирована как необратимая.',
+        lina:'цель: выставить счёт «Академии» за август по договору 14-К и отправить на почту бухгалтерии\nвладелец: acme-school\nкритерии приёмки: письмо со счётом доставлено на buh@acme-school.ru',
+        comments:[] },
+      { id:'t4', title:'Настроить рассылку по вебинару 19.08', owner:'acme-school', status:'todo', prio:'обычный',
+        start:'2026-08-24', due:'2026-08-27', dialogId:'d4',
+        desc:'Письмо участникам вебинара с записью и предложением курса. Сегменты: дошли до конца и ушли раньше.',
+        lina:'цель: отправить рассылку участникам вебинара 19.08 с записью и предложением курса\nвладелец: acme-school\nкритерии приёмки: два сегмента получили разные письма; отчёт по доставке приложен',
+        comments:[{author:'Андрей',time:'вчера 20:10',text:'Тем, кто ушёл раньше, — другой оффер.'}] },
+      { id:'t5', title:'Ревизия allowlist перед релизом', owner:'lpmc-internal', status:'review', prio:'высокий',
+        start:'2026-08-17', due:'2026-08-19',
+        desc:'Пройти по egress_allow: убрать разрешения шире, чем нужно, и проставить префиксы путей там, где стоит хост целиком.',
+        lina:'цель: сверить egress_allow с фактически используемыми путями и сузить широкие разрешения\nвладелец: lpmc-internal\nкритерии приёмки: ни одного правила без префикса пути; список изменений приложен',
+        comments:[{author:'Андрей',time:'19.08 16:30',text:'api.telegram.org стоит хостом целиком — сузить до /bot.'}] },
+      { id:'t6', title:'Заменить TG_BOT_TOKEN', owner:'lpmc-internal', status:'todo', prio:'низкий',
+        start:'2026-08-27', due:'2026-08-29',
+        desc:'Токен не менялся с июля. Плановая ротация: внести новое значение в custody и погасить старое.',
+        lina:'цель: выпустить новый токен бота и внести его в custody\nвладелец: lpmc-internal\nкритерии приёмки: уведомления приходят с новым токеном; старый отозван',
+        comments:[] },
+      { id:'t7', title:'Проверить оплату по счёту 1042', owner:'acme-school', status:'done', prio:'обычный',
+        start:'2026-08-19', due:'2026-08-20', dialogId:'d6',
+        desc:'Сверить поступление с выпиской и закрыть счёт.',
+        lina:'цель: проверить поступление оплаты по счёту 1042\nвладелец: acme-school\nкритерии приёмки: платёж найден в выписке, сумма совпадает',
+        comments:[] },
+      { id:'t8', title:'Описать сценарий MITA для капчи', owner:'lpmc-internal', status:'todo', prio:'низкий',
+        start:'2026-08-28', due:'2026-09-02',
+        desc:'Что делает исполнитель, когда упирается в капчу: как зовёт человека, сколько ждёт, что пишет в диалог.',
+        lina:'цель: описать сценарий обработки капчи исполнителем MITA\nвладелец: lpmc-internal\nкритерии приёмки: сценарий покрывает ожидание человека, таймаут и сообщение в диалог',
+        comments:[] },
+      { id:'t9', title:'Удалить архив вебинаров 2024 года', owner:'acme-school', status:'review', prio:'низкий',
+        start:'2026-08-19', due:'2026-08-20', dialogId:'d5',
+        desc:'Школа просит освободить место в хранилище. Массовое удаление — вне выданных полномочий, нужна отдельная capability от оператора.',
+        lina:'цель: удалить записи вебинаров за 2024 год из хранилища школы\nвладелец: acme-school\nкритерии приёмки: записи 2024 года удалены, место освобождено',
+        comments:[{author:'Андрей',time:'вчера 17:45',text:'PACT отказал по политике — вынести в задачу оператору на выдачу правила.'}] }
+    ],
+    role: null, live: null,
+    query: '', filter: 'all', activeId: 'd1',
+    composer: '', answer: '', rejectReason: '', rejectingId: null,
+    working: false, expanded: {},
+    selectedApproval: 'a1',
+    wizard: null, confirm: null, toasts: [], copied: false,
+    view: null, now: Date.now(),
+    dialogs: [
+      { id:'d1', title:'Выгрузить список учеников курса «Основы»', status:'result', time:'11:42', unread:true, owner:'acme-school',
+        collapsed:true, fields:{objective:true,owner:true,dod:true},
+        messages:[
+          {id:'m1',kind:'you',time:'11:18',text:'Нужно выгрузить список учеников курса «Основы» и прислать ссылку на файл.'},
+          {id:'m2',kind:'question',time:'11:18',field:'owner',answered:true,answerText:'acme-school',text:'К какому владельцу относится обращение: клиент, проект или внутренний контур? Укажите слаг.'},
+          {id:'m3',kind:'question',time:'11:20',field:'dod',answered:true,answerText:'CSV со всеми учениками курса, ссылка живёт 24 часа',text:'По какому признаку считать работу выполненной? Перечислите критерии приёмки.'},
+          {id:'m4',kind:'note',time:'11:21',text:'обращение полное · задача передана арбитру · req-8f21c4'},
+          {id:'m5',kind:'result',time:'11:41',title:'Выгружено 1 248 учеников курса «Основы»',
+            text:'Файл собран из кабинета школы и проверен на исходящей границе. В выгрузке — имя, e-mail, дата зачисления и прогресс. Персональные данные из результата не показываются в диалоге.',
+            artifacts:[{icon:'▤',name:'students-osnovy.csv',meta:'· 214 КБ'},{icon:'▣',name:'снимок экрана кабинета',meta:'· 1 файл'}], decision:null},
+          {id:'m6',kind:'ephemeral',time:'11:41',label:'ссылка на скачивание файла',value:'https://vds.khudoley.pro/d/8Kq3xR2mТ9vLpAe4/students-osnovy.csv',revealed:false,burned:false}
+        ]},
+      { id:'d2', title:'Обновить DNS-запись лендинга', status:'awaiting', time:'11:05', unread:false, owner:'kz-central',
+        fields:{objective:true,owner:true,dod:false},
+        messages:[
+          {id:'n1',kind:'you',time:'10:58',text:'Поменяй A-запись lp.acme-school.ru на новый адрес 91.201.14.77.'},
+          {id:'n2',kind:'question',time:'10:59',field:'owner',answered:true,answerText:'kz-central',text:'К какому владельцу относится обращение: клиент, проект или внутренний контур? Укажите слаг.'},
+          {id:'n3',kind:'question',time:'11:05',field:'dod',answered:false,open:true,placeholder:'например: запись отдаёт новый адрес с двух DNS-серверов',text:'По какому признаку считать работу выполненной? Перечислите критерии приёмки.'}
+        ]},
+      { id:'d3', title:'Выставить счёт клиенту за август', status:'working', time:'10:34', unread:false, owner:'acme-school',
+        fields:{objective:true,owner:true,dod:true},
+        messages:[
+          {id:'p1',kind:'you',time:'10:22',text:'Выстави счёт «Академии» за август по договору 14-К и отправь на почту бухгалтерии.'},
+          {id:'p2',kind:'note',time:'10:23',text:'обращение полное · задача передана арбитру · req-3ab190'},
+          {id:'p3',kind:'escalation',time:'10:31',reason:'капча при входе',text:'Исполнителю нужен человек: на входе в кабинет банка появилась капча. Задача ждёт, пока человек пройдёт её на экране браузера.'},
+          {id:'p4',kind:'note',time:'10:34',text:'действие «отправить счёт» классифицировано как необратимое · запрошено подтверждение оператора'}
+        ]},
+      { id:'d4', title:'Настроить рассылку по вебинару', status:'draft', time:'09:12', unread:false, owner:'—',
+        fields:{objective:true,owner:false,dod:false},
+        messages:[
+          {id:'q1',kind:'you',time:'09:12',text:'Надо сделать рассылку по тем, кто был на вебинаре.'},
+          {id:'q2',kind:'question',time:'09:12',field:'owner',answered:false,open:true,placeholder:'слаг владельца, например acme-school',text:'К какому владельцу относится обращение: клиент, проект или внутренний контур? Укажите слаг.'}
+        ]},
+      { id:'d5', title:'Удалить архив вебинаров 2024 года', status:'rejected', time:'вчера', unread:false, owner:'acme-school',
+        fields:{objective:true,owner:true,dod:true},
+        messages:[
+          {id:'r1',kind:'you',time:'17:40',text:'Снеси все записи вебинаров за 2024 год из хранилища школы.'},
+          {id:'r2',kind:'note',time:'17:40',text:'обращение полное · задача передана арбитру · req-77e401'},
+          {id:'r3',kind:'refusal',time:'17:41',refusalKind:'policy',text:'Отказано политикой: массовое удаление в хранилище школы не входит в выданные полномочия.',hint:'Это решение арбитра, а не ошибка формулировки. Переписать обращение не поможет — нужно, чтобы оператор выдал правило с нужной capability.'}
+        ]},
+      { id:'d6', title:'Проверить оплату по счёту 1042', status:'done', time:'вчера', unread:false, owner:'acme-school',
+        fields:{objective:true,owner:true,dod:true},
+        messages:[
+          {id:'s1',kind:'you',time:'14:02',text:'Проверь, пришла ли оплата по счёту 1042.'},
+          {id:'s2',kind:'reply',time:'14:09',redelivered:true,text:'Оплата по счёту 1042 поступила 19 августа, сумма совпадает с выставленной. Выписка приложена к задаче.'},
+          {id:'s3',kind:'result',time:'14:09',title:'Оплата подтверждена',text:'Платёж найден в выписке за 19 августа. Расхождений по сумме и назначению нет.',artifacts:[{icon:'▤',name:'выписка 19.08.2026',meta:'· PDF'}],decision:'accepted'}
+        ]}
+    ],
+    approvals: [
+      {id:'a1',title:'Удаление DNS-записи lp.acme-school.ru',owner:'kz-central',host:'api.timeweb.cloud',op:'delete',
+       task:'task-8f21c4',run:'run-2b91',dialog:'d2',caps:'dns.record.update, dns.record.read',
+       desc:'Удалить A-запись lp.acme-school.ru перед созданием новой. Прежнее значение восстановлению из журнала не подлежит.',
+       expires:Date.now()+27*60000+14000,state:'pending'},
+      {id:'a2',title:'Публикация курса «Основы» в кабинете школы',owner:'acme-school',host:'api.getcourse.ru',op:'write',
+       task:'task-31aa07',run:'run-4c02',dialog:'d1',caps:'course.publish',
+       desc:'Опубликовать курс для 1 248 учеников. Уведомление получат все зачисленные — отозвать рассылку нельзя.',
+       expires:Date.now()+12*60000+3000,state:'pending'},
+      {id:'a3',title:'Отправка счёта на почту бухгалтерии',owner:'acme-school',host:'api.mailgun.net',op:'write',
+       task:'task-3ab190',run:'run-9d15',dialog:'d3',caps:'invoice.create, mail.send',
+       desc:'Отправить письмо со счётом за август на buh@acme-school.ru. Письмо уйдёт немедленно и не отзывается.',
+       expires:Date.now()+4*60000+41000,state:'pending'}
+    ],
+    secrets: [
+      {name:'GETCOURSE_API_KEY',owner:'acme-school',purpose:'доступ к API кабинета школы',updated:'14.08.2026'},
+      {name:'TIMEWEB_TOKEN',owner:'kz-central',purpose:'управление DNS-записями',updated:'02.08.2026'},
+      {name:'ANTHROPIC_API_KEY',owner:'lpmc-internal',purpose:'доступ модели LINA через прокси',updated:'19.08.2026'},
+      {name:'TG_BOT_TOKEN',owner:'lpmc-internal',purpose:'канал уведомлений оператора',updated:'11.07.2026'}
+    ],
+    allow: [
+      {owner:'acme-school',host:'api.getcourse.ru',methods:'GET, POST',paths:'/pl/api/',op:'read',version:'v1'},
+      {owner:'acme-school',host:'api.getcourse.ru',methods:'POST',paths:'/pl/api/account/deals',op:'write',version:'v1'},
+      {owner:'kz-central',host:'api.timeweb.cloud',methods:'GET, POST, DELETE',paths:'/api/v1/dns',op:'write',version:'v1'},
+      {owner:'lpmc-internal',host:'api.telegram.org',methods:'POST',paths:'/bot',op:'write',version:'v1'},
+      {owner:'*',host:'api.anthropic.com',methods:'POST',paths:'/v1/messages',op:'read',version:'v1'}
+    ],
+    irr: [
+      {host:'api.timeweb.cloud',op:'delete',cls:'irreversible',version:'v1'},
+      {host:'api.mailgun.net',op:'write',cls:'irreversible',version:'v1'},
+      {host:'api.getcourse.ru',op:'write',cls:'reversible',version:'v1'},
+      {host:'api.anthropic.com',op:'read',cls:'reversible',version:'v1'}
+    ],
+    rules: [
+      {sender:'cli:operator',owner:'kz-central',caps:'dns.record.update, dns.record.read',exec:'mita',lease:'1800 s',appr:true},
+      {sender:'tg:1804552',owner:'acme-school',caps:'student.export, deal.create',exec:'cita',lease:'900 s',appr:false},
+      {sender:'web:andrey',owner:'acme-school',caps:'course.publish',exec:'mita',lease:'1800 s',appr:true},
+      {sender:'cli:operator',owner:'lpmc-internal',caps:'model.ask',exec:'cita',lease:'600 s',appr:false}
+    ],
+    instances: [
+      {id:'mita-1',owner:'acme-school',host:'cabinet.acme-school.ru',state:'ожидает человека · капча'},
+      {id:'mita-2',owner:'kz-central',host:'timeweb.cloud',state:'работает'},
+      {id:'mita-3',owner:'lpmc-internal',host:'—',state:'простаивает'}
+    ]
+  };
+
+  timers = [];
+
+  componentDidMount() {
+    this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    this.feed = setInterval(() => this.mockDelivery(), 19000);
+  }
+  componentWillUnmount() {
+    clearInterval(this.tick); clearInterval(this.feed);
+    this.timers.forEach(clearTimeout);
+  }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+
+  get role() { return this.state.role ?? this.props.role ?? 'operator'; }
+  get readOnly() { return this.role === 'guest'; }
+  get live() { return this.state.live ?? this.props.live ?? true; }
+  get marker() { return this.props.privilegeMarker ?? 'full'; }
+
+  toast(label, text) {
+    const id = 't' + Math.random().toString(36).slice(2, 7);
+    this.setState(s => ({ toasts: [...s.toasts, { id, label, text }] }));
+    this.later(() => this.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) })), 6000);
+  }
+
+  patchDialog(id, fn) {
+    this.setState(s => ({ dialogs: s.dialogs.map(d => d.id === id ? fn({ ...d }) : d) }));
+  }
+
+  mockDelivery() {
+    if (!this.live || this.state.zone !== 'dialogs') return;
+    const target = this.state.dialogs.find(d => d.id !== this.state.activeId && d.status === 'working');
+    if (!target) return;
+    this.patchDialog(target.id, d => ({ ...d, unread: true, status: 'result', time: 'сейчас',
+      messages: [...d.messages, { id: 'live' + Date.now(), kind: 'reply', time: 'сейчас',
+        text: 'Счёт за август сформирован и ждёт подтверждения на отправку.' }] }));
+    this.toast('доставлено', 'Новый ответ в диалоге «' + target.title + '»');
+  }
+
+  taskOf(d) { return d.taskId || { d1:'t1', d2:'t2', d3:'t3', d4:'t4', d5:'t9', d6:'t7' }[d.id]; }
+  threadFor(taskId) { return this.state.dialogs.find(d => this.taskOf(d) === taskId); }
+  ensureThread(taskId) {
+    const found = this.threadFor(taskId);
+    if (found) return found.id;
+    const t = this.state.tasks.find(x => x.id === taskId);
+    const id = 'c' + Date.now();
+    this.setState(s => ({ activeId: id, dialogs: [{ id, taskId, title: t ? t.title : 'Задача', status: 'draft',
+      time: 'сейчас', unread: false, owner: t ? t.owner : '—', handed: false,
+      fields: { objective: true, owner: true, dod: true }, messages: [] }, ...s.dialogs] }));
+    return id;
+  }
+  push(threadId, msg) {
+    this.patchDialog(threadId, d => ({ ...d, time: 'сейчас', messages: [...d.messages, { id: 'm' + Math.random().toString(36).slice(2, 8), time: 'сейчас', ...msg }] }));
+  }
+
+  /** Разбор поручений ассистенту: правка полей задачи словами. */
+  parseCommand(text, task) {
+    const t = text.trim().toLowerCase();
+    let m;
+    if ((m = t.match(/(?:срок|дедлайн)\s*[:—-]?\s*(\d{1,2})[.\/-](\d{1,2})(?:[.\/-](\d{2,4}))?/))) {
+      const dd = m[1].padStart(2, '0'), mm = m[2].padStart(2, '0'), yy = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : '2026';
+      const due = yy + '-' + mm + '-' + dd;
+      return { patch: { due }, note: 'срок: ' + task.due + ' → ' + due + ' · изменено ассистентом' };
+    }
+    if ((m = t.match(/владел\S*\s*[:—-]?\s*(acme-school|kz-central|lpmc-internal)/))) {
+      return { patch: { owner: m[1] }, note: 'владелец: ' + task.owner + ' → ' + m[1] + ' · изменено ассистентом' };
+    }
+    if ((m = t.match(/приоритет\s*[:—-]?\s*(высокий|обычный|низкий)/))) {
+      return { patch: { prio: m[1] }, note: 'приоритет: ' + task.prio + ' → ' + m[1] + ' · изменено ассистентом' };
+    }
+    if ((m = t.match(/статус\s*[:—-]?\s*(к выполнению|в работе|на проверке|готово)/))) {
+      const map = { 'к выполнению': 'todo', 'в работе': 'doing', 'на проверке': 'review', 'готово': 'done' };
+      const [was] = this.taskStatusMeta(task.status);
+      return { patch: { status: map[m[1]] }, note: 'статус: ' + was + ' → ' + m[1] + ' · изменено ассистентом' };
+    }
+    if ((m = text.trim().match(/^(?:переименуй|название)\s*[:—-]?\s*(.+)$/i))) {
+      return { patch: { title: m[1] }, note: 'название задачи обновлено · изменено ассистентом' };
+    }
+    if ((m = text.trim().match(/^(?:критерии|приёмка|приемка)\s*[:—-]?\s*(.+)$/i))) {
+      const lina = task.lina.replace(/критерии приёмки:.*/s, 'критерии приёмки: ' + m[1]);
+      return { patch: { lina }, note: 'критерии приёмки в тексте для Lina обновлены' };
+    }
+    return null;
+  }
+
+  send() {
+    const text = this.state.composer.trim();
+    const task = this.state.tasks.find(t => t.id === this.state.selectedTask);
+    if (!text || !task || this.readOnly) return;
+    const tid = this.ensureThread(task.id);
+    const thread = this.threadFor(task.id);
+    const handed = thread ? thread.handed !== false : false;
+    this.setState({ composer: '' });
+    this.push(tid, { kind: 'you', text });
+
+    const cmd = this.parseCommand(text, task);
+    if (cmd && !handed) {
+      this.patchTask(task.id, t => ({ ...t, ...cmd.patch }));
+      this.later(() => this.push(tid, { kind: 'note', text: cmd.note }), 350);
+      return;
+    }
+    if (cmd && handed) {
+      this.later(() => this.push(tid, { kind: 'note',
+        text: 'поля зафиксированы: задача уже передана исполнителю · заведите новое обращение' }), 350);
+      return;
+    }
+    if (!handed) {
+      this.later(() => this.push(tid, { kind: 'reply',
+        text: 'Принято, записал в задачу. Могу поправить срок, владельца, приоритет, статус, название или критерии приёмки — скажите словами. Когда текст задачи готов, передайте её исполнителю кнопкой ниже.' }), 700);
+      return;
+    }
+    this.setState({ working: true });
+    this.patchDialog(tid, d => ({ ...d, status: 'working' }));
+    this.later(() => {
+      this.setState({ working: false });
+      this.push(tid, { kind: 'note', text: 'сообщение доставлено в задачу · req-' + Math.random().toString(16).slice(2, 8) });
+    }, 1400);
+  }
+
+  answerQuestion(mid) {
+    const text = this.state.answer.trim();
+    if (!text || !this.state.activeId) return;
+    const id = this.state.activeId;
+    this.setState({ answer: '', working: true });
+    this.patchDialog(id, d => {
+      const msgs = d.messages.map(m => m.id === mid ? { ...m, open: false, answered: true, answerText: text } : m);
+      const q = d.messages.find(m => m.id === mid);
+      const fields = { ...d.fields, [q.field]: true };
+      return { ...d, fields, status: 'working', messages: [...msgs, { id: 'a' + Date.now(), kind: 'you', time: 'сейчас', text }] };
+    });
+    this.later(() => {
+      this.setState({ working: false });
+      this.patchDialog(id, d => {
+        const missing = !d.fields.owner ? 'owner' : (!d.fields.dod ? 'dod' : null);
+        if (missing) {
+          const q = missing === 'owner'
+            ? 'К какому владельцу относится обращение: клиент, проект или внутренний контур? Укажите слаг.'
+            : 'По какому признаку считать работу выполненной? Перечислите критерии приёмки.';
+          return { ...d, status: 'awaiting', messages: [...d.messages, { id: 'q' + Date.now(), kind: 'question',
+            time: 'сейчас', field: missing, open: true, answered: false,
+            placeholder: missing === 'owner' ? 'слаг владельца' : 'критерии приёмки', text: q }] };
+        }
+        return { ...d, status: 'working', messages: [...d.messages, { id: 'nt' + Date.now(), kind: 'note', time: 'сейчас',
+          text: 'обращение полное · задача передана арбитру · req-' + Math.random().toString(16).slice(2, 8) }] };
+      });
+    }, 1500);
+  }
+
+  decideResult(mid, decision) {
+    if (this.readOnly) return;
+    const id = this.state.activeId;
+    const note = decision === 'rejected' ? this.state.rejectReason.trim() : '';
+    if (decision === 'rejected' && !note) return;
+    this.patchDialog(id, d => ({ ...d, status: decision === 'accepted' ? 'done' : 'rejected', unread: false,
+      messages: d.messages.map(m => m.id === mid ? { ...m, decision, note } : m) }));
+    const th = s0 => s0.dialogs.find(d => d.id === id);
+    const tsk = this.state.tasks.find(t => t.id === (th(this.state) ? this.taskOf(th(this.state)) : null));
+    if (tsk) this.patchTask(tsk.id, t => ({ ...t, status: decision === 'accepted' ? 'done' : 'review' }));
+    this.setState({ rejectingId: null, rejectReason: '' });
+    this.toast('приёмка', decision === 'accepted' ? 'Решение передано: принято' : 'Решение передано: не принято');
+  }
+
+  reveal(mid) {
+    if (this.readOnly) return;
+    const id = this.state.activeId;
+    this.patchDialog(id, d => ({ ...d, messages: d.messages.map(m => m.id === mid ? { ...m, revealed: true } : m) }));
+    this.later(() => this.patchDialog(id, d => ({ ...d,
+      messages: d.messages.map(m => m.id === mid ? { ...m, revealed: false, burned: true } : m) })), 12000);
+  }
+
+  decideApproval(id, ok) {
+    const a = this.state.approvals.find(x => x.id === id);
+    this.setState(s => ({ approvals: s.approvals.map(x => x.id === id ? { ...x, state: ok ? 'approved' : 'denied' } : x) }));
+    this.toast(ok ? 'подтверждено' : 'отказано', a.title);
+    if (a.dialog) this.patchDialog(a.dialog, d => ({ ...d, unread: true, messages: [...d.messages,
+      { id: 'ap' + Date.now(), kind: 'note', time: 'сейчас',
+        text: ok ? 'действие подтверждено оператором · задача возобновлена новым запуском'
+                 : 'оператор отказал в подтверждении · задача закрыта отказом' }] }));
+  }
+
+  issueView(inst) {
+    const token = Math.random().toString(36).slice(2, 10) + 'Rk' + Math.random().toString(36).slice(2, 6);
+    this.setState({ view: { instance: inst.id, token, expires: Date.now() + 30 * 60000 }, copied: false });
+    this.toast('сеанс выдан', 'Просмотр ' + inst.id + ' · одноразовая ссылка на 30 минут');
+  }
+
+  today() { return new Date(2026, 7, 21); }
+  dayIndex(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return Math.round((new Date(y, m - 1, d) - this.today()) / 86400000);
+  }
+  dueMeta(iso) {
+    const i = this.dayIndex(iso), [, m, d] = iso.split('-');
+    const date = d + '.' + m;
+    if (i < 0) return { label: 'просрочено · ' + date, color: 'var(--danger)' };
+    if (i === 0) return { label: 'сегодня · ' + date, color: 'var(--accent)' };
+    if (i === 1) return { label: 'завтра · ' + date, color: 'var(--fg2)' };
+    return { label: 'до ' + date, color: 'var(--fg3)' };
+  }
+  taskStatusMeta(st) {
+    return { todo: ['к выполнению', 'var(--fg3)'], doing: ['в работе', 'var(--accent)'],
+      review: ['на проверке', 'var(--warn)'], done: ['готово', 'var(--ok)'] }[st];
+  }
+  patchTask(id, fn) {
+    if (this.readOnly) return;
+    this.setState(s => ({ tasks: s.tasks.map(t => t.id === id ? fn({ ...t }) : t) }));
+  }
+  moveTask(id, dir) {
+    const order = ['todo', 'doing', 'review', 'done'];
+    this.patchTask(id, t => ({ ...t, status: order[Math.min(order.length - 1, Math.max(0, order.indexOf(t.status) + dir))] }));
+  }
+  addComment(id) {
+    const text = this.state.comment.trim();
+    if (!text || this.readOnly) return;
+    this.setState({ comment: '' });
+    this.patchTask(id, t => ({ ...t, comments: [...t.comments, { author: 'Андрей', time: 'сейчас', text }] }));
+  }
+  handover(id) {
+    const t = this.state.tasks.find(x => x.id === id);
+    if (!t || this.readOnly) return;
+    const tid = this.ensureThread(id);
+    this.patchTask(id, x => ({ ...x, status: x.status === 'done' ? x.status : 'doing', dialogId: tid }));
+    this.patchDialog(tid, d => ({ ...d, handed: true, status: 'working' }));
+    this.push(tid, { kind: 'you', text: t.lina });
+    this.toast('передано исполнителю', t.title);
+    this.later(() => this.push(tid, { kind: 'note',
+      text: 'обращение полное · задача передана арбитру · req-' + Math.random().toString(16).slice(2, 8) }), 1500);
+  }
+
+  fmt(ms) {
+    if (ms <= 0) return 'истекла';
+    const t = Math.floor(ms / 1000);
+    return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+  }
+
+  chip(color, bg) {
+    return 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;letter-spacing:.06em;padding:3px 8px;text-transform:uppercase;white-space:nowrap;color:' + color + ';border:1px solid ' + color + ';background:' + (bg || 'transparent');
+  }
+
+  statusMeta(st) {
+    const map = {
+      draft: ['черновик · собираем запрос', 'var(--fg3)', 'черновик'],
+      awaiting: ['ждём вашего ответа', 'var(--accent)', 'ждёт вас'],
+      working: ['в работе', 'var(--fg2)', 'в работе'],
+      result: ['есть результат — нужна приёмка', 'var(--ok)', 'нужна приёмка'],
+      done: ['завершён', 'var(--fg3)', 'завершён'],
+      rejected: ['отклонён', 'var(--danger)', 'отклонён']
+    };
+    return map[st] || map.draft;
+  }
+
+  openWizard(kind) {
+    const w = kind === 'endpoint'
+      ? { kind, step: 1, total: 3, owner: 'acme-school', host: '', methods: [], paths: '', op: 'auto' }
+      : { kind, step: 1, total: 2, name: '', owner: 'acme-school', purpose: '', value: '' };
+    this.setState({ wizard: w });
+  }
+  setW(patch) { this.setState(s => ({ wizard: { ...s.wizard, ...patch } })); }
+
+  submitWizard() {
+    const w = this.state.wizard;
+    if (w.kind === 'endpoint') {
+      if (w.step === 1) { if (!/^[a-z0-9.-]+$/.test(w.host)) return this.setW({ err: 'хост: латиница, цифры, точки, дефис' }); return this.setW({ step: 2, err: null }); }
+      if (w.step === 2) { if (!w.methods.length) return this.setW({ err: 'выберите хотя бы один метод' }); return this.setW({ step: 3, err: null }); }
+      this.setState(s => ({ wizard: null, allow: [...s.allow, { owner: w.owner, host: w.host,
+        methods: w.methods.join(', '), paths: w.paths || '(любой путь)', op: w.op, version: 'v1' }] }));
+      this.toast('политика', 'Эндпоинт ' + w.host + ' разрешён для ' + w.owner);
+    } else {
+      if (w.step === 1) { if (!/^[A-Za-z0-9_.-]{1,128}$/.test(w.name)) return this.setW({ err: 'имя: латиница/цифры/._- до 128 символов' }); return this.setW({ step: 2, err: null }); }
+      if (!w.value.trim()) return this.setW({ err: 'пустое значение не принимается' });
+      this.setState(s => ({ wizard: null, secrets: [...s.secrets.filter(x => x.name !== w.name),
+        { name: w.name, owner: w.owner, purpose: w.purpose || 'не указано', updated: 'сейчас' }] }));
+      this.toast('custody', 'Секрет ' + w.name + ' внесён · значение зашифровано мастер-ключом');
+    }
+  }
+
+  renderVals() {
+    const s = this.state, role = this.role, isOperator = role === 'operator';
+    const readOnly = role === 'guest', canEdit = !readOnly;
+    const zone = (!isOperator && s.zone === 'admin') ? 'dialogs' : s.zone;
+    const admin = zone === 'admin';
+    const btn = (bg, fg) => 'cursor:pointer;background:' + bg + ';color:' + fg + ';padding:11px 20px;font-size:12.5px;font-weight:600;display:flex;align-items:center;';
+    const tab = (on) => 'cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 14px;font-size:12.5px;font-weight:600;white-space:nowrap;'
+      + (on ? 'background:var(--accent-fill);color:var(--accent-fill-fg);' : 'color:var(--fg2);');
+
+    // ── задачи
+    const prioStyle = (p) => this.chip(p === 'высокий' ? 'var(--warn)' : 'var(--fg3)');
+    const dueChip = (t) => { const m = this.dueMeta(t.due);
+      return { label: m.label, style: 'font-family:\'JetBrains Mono\',monospace;font-size:10.5px;letter-spacing:.03em;color:' + m.color + ';' }; };
+    const taskViews = [['table', 'Таблица'], ['board', 'Канбан'], ['timeline', 'Таймлайн']]
+      .map(([k, label]) => ({ label, onPick: () => this.setState({ taskView: k }), style: tab(s.taskView === k) }));
+
+    const owners = ['acme-school', 'kz-central', 'lpmc-internal'];
+    const fchip = (on) => 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.03em;padding:5px 9px;border:1px solid '
+      + (on ? 'var(--accent-line);color:var(--accent);background:var(--accent-soft);' : 'var(--line);color:var(--fg3);');
+    const rochip = 'cursor:default;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.03em;padding:5px 9px;border:1px solid var(--line-2);color:var(--fg2);';
+    const group = (label, key, opts) => ({ label, options: opts.map(([v, l]) => ({ label: l,
+      style: fchip(s[key] === v), onPick: () => this.setState({ [key]: v }) })) });
+    const taskFilters = [
+      group('владелец', 'fOwner', [['all', 'все'], ...owners.map(o => [o, o])]),
+      group('статус', 'fStatus', [['all', 'все'], ['todo', 'к выполнению'], ['doing', 'в работе'], ['review', 'на проверке'], ['done', 'готово']]),
+      group('срок', 'fDue', [['all', 'любой'], ['over', 'просроченные'], ['today', 'сегодня'], ['week', '7 дней']])
+    ];
+    const fits = (t) => {
+      if (s.fOwner !== 'all' && t.owner !== s.fOwner) return false;
+      if (s.fStatus !== 'all' && t.status !== s.fStatus) return false;
+      if (s.fDue !== 'all') {
+        const i = this.dayIndex(t.due);
+        if (s.fDue === 'over' && (i >= 0 || t.status === 'done')) return false;
+        if (s.fDue === 'today' && i !== 0) return false;
+        if (s.fDue === 'week' && (i < 0 || i > 7)) return false;
+      }
+      return true;
+    };
+    const shown = s.tasks.filter(fits);
+
+    const taskCommon = (t) => {
+      const [sl, sc] = this.taskStatusMeta(t.status), due = dueChip(t);
+      return { id: t.id, title: t.title, owner: t.owner, statusLabel: sl, statusStyle: this.chip(sc),
+        prio: t.prio, prioStyle: prioStyle(t.prio), dueLabel: due.label, dueStyle: due.style,
+        dotStyle: 'width:7px;height:7px;flex:none;background:' + sc + ';',
+        dialogLabel: t.dialogId ? t.dialogId : '—',
+        onOpen: () => { const th = this.threadFor(t.id); this.setState({ selectedTask: t.id, rejectingId: null, chatHidden: false, activeId: th ? th.id : null }); } };
+    };
+    const taskRows = shown.map(t => ({ ...taskCommon(t),
+      rowStyle: 'min-width:760px;display:grid;grid-template-columns:minmax(200px,1.9fr) 120px 130px 100px 110px 100px;border-bottom:1px solid var(--line);align-items:center;cursor:pointer;'
+        + (s.selectedTask === t.id ? 'background:var(--surface-2);box-shadow:inset 2px 0 0 var(--accent);' : '') }));
+
+    const boardColumns = ['todo', 'doing', 'review', 'done'].map(st => {
+      const [label, color] = this.taskStatusMeta(st);
+      const cards = shown.filter(t => t.status === st).map(t => ({ ...taskCommon(t),
+        commentsLabel: t.comments.length ? t.comments.length + ' комм.' : 'без комментариев',
+        moveStyle: 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--fg3);padding:0 3px;',
+        onPrev: (e) => { e.stopPropagation(); this.moveTask(t.id, -1); },
+        onNext: (e) => { e.stopPropagation(); this.moveTask(t.id, 1); },
+        cardStyle: 'cursor:pointer;display:flex;flex-direction:column;gap:9px;padding:11px 12px;background:var(--surface);border:1px solid '
+          + (s.selectedTask === t.id ? 'var(--accent-line);' : 'var(--line-2);') }));
+      return { label, count: cards.length, cards, dotStyle: 'width:7px;height:7px;background:' + color + ';flex:none;' };
+    });
+
+    const span = 14;
+    const days = Array.from({ length: span }, (_, i) => {
+      const d = new Date(this.today().getTime() + i * 86400000);
+      const weekend = d.getDay() === 0 || d.getDay() === 6;
+      return { label: String(d.getDate()).padStart(2, '0'),
+        style: 'padding:9px 0;text-align:center;font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:'
+          + (i === 0 ? 'var(--accent);' : weekend ? 'var(--fg3);opacity:.55;' : 'var(--fg3);'),
+        cellStyle: 'border-left:1px solid ' + (i === 0 ? 'var(--accent-line);' : 'var(--line);') + 'min-height:100%;'
+          + (weekend ? 'background:rgba(255,255,255,0.015);' : '') };
+    });
+    const timeline = {
+      days, headStyle: 'display:grid;grid-template-columns:repeat(' + span + ',1fr);',
+      gridStyle: 'position:relative;display:grid;grid-template-columns:repeat(' + span + ',1fr);align-items:center;min-height:46px;',
+      rows: shown.map(t => {
+        const c = taskCommon(t);
+        const si = Math.max(0, Math.min(span - 1, this.dayIndex(t.start)));
+        const di = this.dayIndex(t.due), over = di < 0, done = t.status === 'done';
+        const end = Math.max(si, Math.min(span - 1, di));
+        const color = done ? 'var(--ok)' : over ? 'var(--danger)' : t.status === 'doing' ? 'var(--accent)' : 'var(--fg3)';
+        return { ...c, barLabel: over ? 'просрочено' : '',
+          barStyle: 'grid-row:1;grid-column:' + (over ? 1 : si + 1) + ' / span ' + (over ? 2 : end - si + 1)
+            + ';height:22px;margin:0 3px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;'
+            + 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;letter-spacing:.06em;color:' + (over ? '#2B0E12' : 'transparent')
+            + ';background:' + color + ';opacity:' + (done ? '.4' : '.85') + ';' };
+      })
+    };
+
+    const ct = s.tasks.find(t => t.id === s.selectedTask);
+    const task = ct ? { ...taskCommon(ct), exists: true, desc: ct.desc, linaText: ct.lina,
+      linaState: ct.dialogId ? 'отправлено' : 'черновик',
+      comments: ct.comments, commentCount: ct.comments.length,
+      sent: !!ct.dialogId, dialogId: ct.dialogId,
+      editors: [
+        { label: 'статус', isPicker: true, options: ['todo', 'doing', 'review', 'done']
+          .filter(st => canEdit || ct.status === st).map(st => {
+            const [l] = this.taskStatusMeta(st);
+            return { label: l, style: canEdit ? fchip(ct.status === st) : rochip,
+              onPick: () => this.patchTask(ct.id, t => ({ ...t, status: st })) }; }) },
+        { label: 'владелец', isPicker: true, options: owners.filter(o => canEdit || ct.owner === o)
+          .map(o => ({ label: o, style: canEdit ? fchip(ct.owner === o) : rochip,
+            onPick: () => this.patchTask(ct.id, t => ({ ...t, owner: o })) })) },
+        { label: 'приоритет', isPicker: true, options: ['высокий', 'обычный', 'низкий'].filter(p => canEdit || ct.prio === p)
+          .map(p => ({ label: p, style: canEdit ? fchip(ct.prio === p) : rochip,
+            onPick: () => this.patchTask(ct.id, t => ({ ...t, prio: p })) })) },
+        { label: 'срок', isDate: true, value: ct.due, onInput: e => this.patchTask(ct.id, t => ({ ...t, due: e.target.value || t.due })),
+          note: dueChip(ct).label, noteStyle: dueChip(ct).style }
+      ],
+      onTitleInput: e => this.patchTask(ct.id, t => ({ ...t, title: e.target.value })),
+      onDescInput: e => this.patchTask(ct.id, t => ({ ...t, desc: e.target.value })),
+      onLinaInput: e => this.patchTask(ct.id, t => ({ ...t, lina: e.target.value })),
+      onComment: () => this.addComment(ct.id),
+      commentBtnStyle: btn(s.comment.trim() ? 'var(--accent-fill)' : 'var(--surface-2)', s.comment.trim() ? 'var(--accent-fill-fg)' : 'var(--fg3)') + 'padding:9px 14px;font-size:12px;',
+      onClose: () => this.setState({ selectedTask: null }) } : { exists: false, comments: [], editors: [] };
+
+    // ── чат по задаче
+    const curThread = ct ? this.threadFor(ct.id) : null;
+    const handed = curThread ? curThread.handed !== false : false;
+    const mapMsg = (m) => {
+      const base = { id: m.id, time: m.time, text: m.text };
+      if (m.kind === 'you') return { ...base, isYou: true };
+      if (m.kind === 'reply') return { ...base, isReply: true, redelivered: !!m.redelivered };
+      if (m.kind === 'note') return { ...base, isNote: true };
+      if (m.kind === 'question') return { ...base, isQuestion: true, field: m.field, open: !!m.open && canEdit,
+        answered: !!m.answered, answerText: m.answerText, placeholder: m.placeholder || 'ваш ответ',
+        onSend: () => this.answerQuestion(m.id) };
+      if (m.kind === 'escalation') return { ...base, isEscalation: true, reason: m.reason,
+        onOpenView: () => this.setState({ zone: 'admin', adminScreen: 'view' }) };
+      if (m.kind === 'ephemeral') return { ...base, isEphemeral: true, label: m.label, value: m.value,
+        hidden: !m.revealed && !m.burned && canEdit, revealed: !!m.revealed, burned: !!m.burned || (!m.revealed && readOnly),
+        onReveal: () => this.reveal(m.id) };
+      if (m.kind === 'refusal') return { ...base, isRefusal: true, hint: m.hint,
+        kindLabel: m.refusalKind === 'policy' ? 'отказано политикой · решение арбитра' : 'ошибка в обращении · можно переформулировать' };
+      if (m.kind === 'result') return { ...base, isResult: true, title: m.title, artifacts: m.artifacts,
+        pending: !m.decision && s.rejectingId !== m.id && canEdit, rejecting: s.rejectingId === m.id, decided: !!m.decision,
+        decidedStyle: 'border-top:1px solid ' + (m.decision === 'accepted' ? 'var(--ok)' : 'var(--danger)')
+          + ';padding:10px 13px;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.04em;color:'
+          + (m.decision === 'accepted' ? 'var(--ok)' : 'var(--danger)') + ';background:'
+          + (m.decision === 'accepted' ? 'var(--ok-soft)' : 'var(--danger-soft)') + ';',
+        decidedText: m.decision === 'accepted' ? '✓ результат принят · задача закрыта'
+          : '✗ результат не принят · причина: ' + (m.note || '—'),
+        onAccept: () => this.decideResult(m.id, 'accepted'),
+        onReject: () => this.setState({ rejectingId: m.id, rejectReason: '' }),
+        onConfirmReject: () => this.decideResult(m.id, 'rejected'),
+        onCancelReject: () => this.setState({ rejectingId: null, rejectReason: '' }) };
+      return base;
+    };
+
+    const quickChip = 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:10px;padding:5px 9px;border:1px solid var(--line-2);color:var(--fg2);';
+    const nextDue = (t) => { const d = new Date(t.due); d.setDate(d.getDate() + 1);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const quick = ct && !handed && canEdit ? [
+      { label: 'срок +1 день', style: quickChip, onPick: () => { const nd = nextDue(ct);
+        this.patchTask(ct.id, t => ({ ...t, due: nd }));
+        this.push(this.ensureThread(ct.id), { kind: 'note', text: 'срок: ' + ct.due + ' → ' + nd + ' · изменено ассистентом' }); } },
+      { label: ct.prio === 'высокий' ? 'приоритет: обычный' : 'приоритет: высокий', style: quickChip,
+        onPick: () => { const p = ct.prio === 'высокий' ? 'обычный' : 'высокий';
+          this.patchTask(ct.id, t => ({ ...t, prio: p }));
+          this.push(this.ensureThread(ct.id), { kind: 'note', text: 'приоритет: ' + ct.prio + ' → ' + p + ' · изменено ассистентом' }); } },
+      { label: 'в работу', style: quickChip, onPick: () => { this.patchTask(ct.id, t => ({ ...t, status: 'doing' }));
+        this.push(this.ensureThread(ct.id), { kind: 'note', text: 'статус: в работе · изменено ассистентом' }); } }
+    ] : [];
+
+    const chat = ct ? {
+      exists: true, none: false, title: ct.title, owner: ct.owner,
+      statusLabel: this.taskStatusMeta(ct.status)[0], statusStyle: this.chip(this.taskStatusMeta(ct.status)[1]),
+      prio: ct.prio, prioStyle: prioStyle(ct.prio), dueLabel: dueChip(ct).label, dueStyle: dueChip(ct).style,
+      linaText: ct.lina, fresh: !curThread || curThread.messages.length === 0,
+      messages: curThread ? curThread.messages.map(mapMsg) : [],
+      working: s.working, handed, canHandover: !handed && canEdit, quickOn: quick.length > 0 && canEdit, quick,
+      placeholder: handed ? 'Сообщение в диалог задачи' : 'Обсудить задачу или поправить поле',
+      handoverStyle: btn('var(--accent-fill)', 'var(--accent-fill-fg)') + 'padding:10px 16px;',
+      onHandover: () => this.handover(ct.id),
+      onCard: () => this.setState({ cardOpen: true })
+    } : { exists: false, none: true, messages: [], quick: [] };
+
+    const card = ct && s.cardOpen ? {
+      open: true, id: ct.id, title: ct.title, desc: ct.desc, linaText: ct.lina,
+      linaState: handed ? 'передано исполнителю' : 'черновик',
+      comments: ct.comments, commentCount: ct.comments.length,
+      editors: task.editors, onTitleInput: task.onTitleInput, onDescInput: task.onDescInput,
+      onLinaInput: task.onLinaInput, onComment: task.onComment, commentBtnStyle: task.commentBtnStyle,
+      footNote: handed ? 'Задача передана исполнителю — правки полей больше не влияют на запущённый диалог.'
+        : 'Правки сохраняются сразу. Передача исполнителю — из чата справа.',
+      onClose: () => this.setState({ cardOpen: false }), stop: e => e.stopPropagation()
+    } : { open: false, comments: [], editors: [] };
+
+    // ── админ
+    const pending = s.approvals.filter(a => a.state === 'pending');
+    const adminNav = [
+      ['services', '3.1', 'Сервисы и правила', ''],
+      ['secrets', '3.2', 'Секреты', ''],
+      ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : ''],
+      ['view', '3.4', 'Просмотр экрана', '']
+    ].map(([k, num, label, badge]) => ({ num, label, badge,
+      onOpen: () => this.setState({ adminScreen: k }),
+      style: 'cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 11px;font-size:13px;'
+        + (s.adminScreen === k ? 'background:var(--surface-2);color:var(--fg);box-shadow:inset 2px 0 0 var(--accent);' : 'color:var(--fg2);') }));
+
+    const serviceTabs = [['allow', 'Разрешённые эндпоинты', s.allow.length], ['irr', 'Необратимость', s.irr.length], ['rules', 'Правила и capability', s.rules.length]]
+      .map(([k, label, count]) => ({ label, count, onPick: () => this.setState({ servicesTab: k }), style: tab(s.servicesTab === k) }));
+
+    const row = 'display:grid;border-bottom:1px solid var(--line);align-items:center;';
+    const allowRows = s.allow.map(r => ({ ...r, rowStyle: row + 'grid-template-columns:150px 1.4fr 150px 1.3fr 120px 70px;',
+      opStyle: this.chip(r.op === 'delete' ? 'var(--danger)' : 'var(--fg3)') }));
+    const irrRows = s.irr.map(r => ({ ...r, rowStyle: row + 'grid-template-columns:1.6fr 160px 1fr 80px;',
+      clsStyle: this.chip(r.cls === 'irreversible' ? 'var(--danger)' : 'var(--fg3)',
+        r.cls === 'irreversible' ? 'var(--danger-soft)' : 'transparent') }));
+    const ruleRows = s.rules.map(r => ({ ...r, appr: r.appr ? 'требуется' : 'нет',
+      rowStyle: row + 'grid-template-columns:1.2fr 130px 1.5fr 90px 100px 110px;',
+      execStyle: this.chip('var(--fg3)'),
+      apprStyle: this.chip(r.appr ? 'var(--warn)' : 'var(--fg3)') }));
+    const secretRows = s.secrets.map(x => ({ ...x, rowStyle: row + 'grid-template-columns:1.3fr 150px 1.4fr 130px 110px;',
+      onDelete: () => this.setState({ confirm: { kind: 'secret', name: x.name } }) }));
+
+    const approvalRows = s.approvals.map(a => {
+      const left = a.expires - s.now, decided = a.state !== 'pending';
+      return { title: a.title, host: a.host, op: a.op, owner: a.owner, decided,
+        ttl: decided ? '—' : this.fmt(left),
+        ttlStyle: this.chip(decided ? 'var(--fg3)' : left < 5 * 60000 ? 'var(--danger)' : 'var(--fg3)'),
+        decidedLabel: a.state === 'approved' ? 'подтверждено' : 'отказано',
+        decidedStyle: this.chip(a.state === 'approved' ? 'var(--ok)' : 'var(--danger)') + ';align-self:flex-start;',
+        style: 'cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid var(--line);'
+          + (s.selectedApproval === a.id ? 'background:var(--surface-2);box-shadow:inset 2px 0 0 var(--accent);' : ''),
+        onOpen: () => this.setState({ selectedApproval: a.id }) };
+    });
+    const sel = s.approvals.find(a => a.id === s.selectedApproval);
+    const selLeft = sel ? sel.expires - s.now : 0;
+    const approval = sel ? {
+      exists: true, none: false, title: sel.title, token: 'token ' + sel.id + 'ZQ…w7Rk',
+      ttl: this.fmt(selLeft), ttlStyle: this.chip(selLeft < 5 * 60000 ? 'var(--danger)' : 'var(--fg3)'),
+      facts: [
+        { k: 'владелец', v: sel.owner, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--fg);' },
+        { k: 'внешняя система', v: sel.host, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--fg);' },
+        { k: 'тип операции', v: sel.op, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--danger);' },
+        { k: 'что будет сделано', v: sel.desc, vStyle: 'font-size:13px;line-height:1.6;color:var(--fg2);' },
+        { k: 'полномочия запуска', v: sel.caps, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--fg2);' },
+        { k: 'задача · запуск', v: sel.task + ' · ' + sel.run, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--fg3);' }
+      ],
+      pending: sel.state === 'pending' && selLeft > 0, done: sel.state !== 'pending' || selLeft <= 0,
+      doneLabel: sel.state === 'approved' ? 'подтверждено' : sel.state === 'denied' ? 'отказано' : 'срок истёк',
+      doneText: sel.state === 'approved' ? 'Система продолжит работу новым запуском. Прежний лизинг для этого не годится.'
+        : sel.state === 'denied' ? 'Действие не будет выполнено. Задача закрыта отказом.'
+        : 'Срок подтверждения истёк, решение по ссылке больше не принимается. Продление не предусмотрено.',
+      doneStyle: 'display:flex;flex-direction:column;gap:7px;padding:14px 16px;border:1px solid '
+        + (sel.state === 'approved' ? 'var(--ok);background:var(--ok-soft);color:var(--ok);'
+          : 'var(--danger);background:var(--danger-soft);color:var(--danger);'),
+      onApprove: () => this.decideApproval(sel.id, true), onDeny: () => this.decideApproval(sel.id, false)
+    } : { exists: false, none: true, facts: [] };
+
+    const vs = s.view, vLeft = vs ? vs.expires - s.now : 0;
+    const instanceRows = s.instances.map(i => {
+      const active = vs && vs.instance === i.id;
+      return { id: i.id, owner: i.owner, host: i.host, state: i.state, active: !!active, canIssue: !active,
+        rowStyle: row + 'grid-template-columns:130px 150px 1fr 1.1fr 190px;',
+        stateStyle: this.chip(i.state.includes('ожидает') ? 'var(--warn)' : 'var(--fg3)'),
+        onIssue: () => this.issueView(i), onRevoke: () => this.setState({ view: null }) };
+    });
+    const view = vs ? { active: true, instance: vs.instance,
+      link: 'vds.khudoley.pro/lpmc-view/' + vs.token.slice(0, 10) + '…/vnc.html',
+      ttl: this.fmt(vLeft), ttlStyle: this.chip(vLeft < 5 * 60000 ? 'var(--danger)' : 'var(--fg3)'),
+      copyLabel: s.copied ? 'ссылка скопирована' : 'скопировать',
+      onCopy: () => { this.setState({ copied: true }); this.later(() => this.setState({ copied: false }), 2500); },
+      onRevoke: () => { this.setState({ view: null }); this.toast('сеанс погашен', 'Соединения разорваны, ссылка недействительна'); }
+    } : { active: false };
+
+    // ── мастер
+    const w = s.wizard;
+    const pick = (on) => 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:7px 11px;border:1px solid '
+      + (on ? 'var(--accent);color:var(--accent);background:var(--accent-soft);' : 'var(--line-2);color:var(--fg2);');
+    let wizard = { open: false, fields: [] };
+    if (w) {
+      const owners = ['acme-school', 'kz-central', 'lpmc-internal', '*'];
+      let title = '', fields = [], warn = false, warnText = '';
+      if (w.kind === 'endpoint') {
+        if (w.step === 1) { title = 'Разрешить эндпоинт · владелец и хост';
+          fields = [
+            { label: 'владелец', isChoice: true, options: owners.map(o => ({ label: o, style: pick(w.owner === o), onPick: () => this.setW({ owner: o }) })) },
+            { label: 'хост', isInput: true, type: 'text', value: w.host, placeholder: 'api.example.com',
+              onInput: e => this.setW({ host: e.target.value, err: null }), hint: true,
+              hintText: 'хост: латиница, цифры, точки, дефис', error: !!w.err, errorText: w.err }
+          ]; }
+        else if (w.step === 2) { title = 'Методы и префиксы путей';
+          fields = [
+            { label: 'методы', isChoice: true, options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ label: m,
+              style: pick(w.methods.includes(m)),
+              onPick: () => this.setW({ methods: w.methods.includes(m) ? w.methods.filter(x => x !== m) : [...w.methods, m], err: null }) })) },
+            { label: 'префиксы путей', isInput: true, type: 'text', value: w.paths, placeholder: '/api/v1/dns',
+              onInput: e => this.setW({ paths: e.target.value }), hint: true,
+              hintText: 'пусто = любой путь. Разрешение не должно быть грубее действия', error: !!w.err, errorText: w.err }
+          ]; }
+        else { title = 'Тип операции и проверка';
+          fields = [
+            { label: 'тип операции', isChoice: true, options: ['auto', 'read', 'write', 'delete'].map(o => ({ label: o, style: pick(w.op === o), onPick: () => this.setW({ op: o }) })) },
+            { label: 'что будет записано', isInput: true, type: 'text',
+              value: '[' + w.owner + '] ' + w.host + ' ' + w.methods.join(',') + ' ' + (w.paths || '(любой путь)') + ' (' + w.op + ', v1)',
+              onInput: () => {}, hint: true, hintText: 'запись попадёт в egress_allow с текущей версией набора правил' }
+          ]; }
+      } else {
+        if (w.step === 1) { title = 'Внести секрет · имя и владелец';
+          fields = [
+            { label: 'имя секрета', isInput: true, type: 'text', value: w.name, placeholder: 'SERVICE_API_KEY',
+              onInput: e => this.setW({ name: e.target.value, err: null }), hint: true,
+              hintText: 'латиница, цифры, точка, дефис, подчёркивание — до 128 символов', error: !!w.err, errorText: w.err },
+            { label: 'владелец', isChoice: true, options: owners.slice(0, 3).map(o => ({ label: o, style: pick(w.owner === o), onPick: () => this.setW({ owner: o }) })) },
+            { label: 'назначение', isInput: true, type: 'text', value: w.purpose, placeholder: 'для чего используется',
+              onInput: e => this.setW({ purpose: e.target.value }) }
+          ]; }
+        else { title = 'Значение секрета'; warn = true;
+          warnText = 'Значение шифруется мастер-ключом и после сохранения не показывается никому — ни здесь, ни в журнале. Ошибку можно только перезаписать новым значением.';
+          fields = [
+            { label: 'значение', isInput: true, type: 'password', value: w.value, placeholder: '••••••••••••',
+              onInput: e => this.setW({ value: e.target.value, err: null }), hint: true,
+              hintText: 'ввод маскирован и не попадает в argv и логи', error: !!w.err, errorText: w.err }
+          ]; }
+      }
+      const last = w.step === w.total;
+      wizard = { open: true, step: w.step, total: w.total, title, fields, warn, warnText,
+        canBack: w.step > 1, onBack: () => this.setW({ step: w.step - 1, err: null }),
+        onNext: () => this.submitWizard(),
+        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : 'Разрешить') : 'Далее →',
+        nextStyle: btn(w.kind === 'secret' && last ? 'var(--danger)' : 'var(--accent-fill)', w.kind === 'secret' && last ? '#2B0E12' : 'var(--accent-fill-fg)'),
+        onClose: () => this.setState({ wizard: null }), onBackdrop: () => this.setState({ wizard: null }),
+        stop: e => e.stopPropagation(),
+        panelStyle: 'width:520px;max-width:100%;height:100%;background:var(--surface);border-left:1px solid '
+          + (w.kind === 'secret' ? 'var(--danger)' : 'var(--accent-line)') + ';display:flex;flex-direction:column;animation:slidein .22s ease;' };
+    }
+
+    const c = s.confirm;
+    const confirm = c ? { open: true, title: 'Удалить секрет ' + c.name + '?',
+      text: 'Значение стирается из custody безвозвратно. Задачи, которым этот секрет выдаётся на время лизинга, начнут получать отказ сразу после удаления.',
+      confirmLabel: 'Удалить безвозвратно',
+      onConfirm: () => { this.setState(st => ({ secrets: st.secrets.filter(x => x.name !== c.name), confirm: null }));
+        this.toast('custody', 'Секрет ' + c.name + ' удалён'); },
+      onCancel: () => this.setState({ confirm: null }) } : { open: false };
+
+    return {
+      zoneAttr: admin && this.marker !== 'bar' ? 'admin' : 'dialogs',
+      density: this.props.density ?? 'medium',
+      isTasks: zone !== 'admin', isDialogs: false, isAdmin: admin, isOperator, isUser: !isOperator,
+      readOnly, canEdit,
+      showPrivBar: admin && this.marker !== 'tint',
+      opSessionLeft: '42:10',
+      chatShown: !s.chatHidden, chatHidden: !!s.chatHidden,
+      hideChat: () => this.setState({ chatHidden: true }),
+      showChat: () => this.setState({ chatHidden: false }),
+      goTasks: () => this.setState({ zone: 'tasks' }),
+      goAdmin: () => this.setState({ zone: 'admin' }),
+      tabTasksStyle: tab(!admin), tabAdminStyle: tab(admin),
+      chat, card,
+      taskViews, viewTable: s.taskView === 'table', viewBoard: s.taskView === 'board', viewTimeline: s.taskView === 'timeline',
+      taskFilters, filtersOn: s.fOwner !== 'all' || s.fStatus !== 'all' || s.fDue !== 'all',
+      taskCountLabel: shown.length === s.tasks.length ? s.tasks.length + ' задач' : shown.length + ' из ' + s.tasks.length,
+      resetFilters: () => this.setState({ fOwner: 'all', fStatus: 'all', fDue: 'all' }),
+      taskRows, boardColumns, timeline,
+      comment: s.comment, onComment: e => this.setState({ comment: e.target.value }),
+      onCommentKey: e => { if (e.key === 'Enter' && ct) this.addComment(ct.id); },
+      newTask: () => { const id = 'nt' + Date.now();
+        this.setState(st => ({ selectedTask: id, activeId: null, cardOpen: true, taskView: 'table', tasks: [{ id, title: 'Новая задача', owner: 'acme-school',
+          status: 'todo', prio: 'обычный', start: '2026-08-21', due: '2026-08-28', desc: 'Опишите, что нужно сделать.',
+          lina: 'цель: \nвладелец: \nкритерии приёмки: ', comments: [] }, ...st.tasks] })); },
+      setRoleGuest: () => this.setState({ role: 'guest', zone: 'tasks', cardOpen: false }),
+      setRoleUser: () => this.setState({ role: 'user', zone: 'tasks' }),
+      setRoleOperator: () => this.setState({ role: 'operator' }),
+      roleGuestStyle: 'cursor:pointer;padding:5px 10px;font-family:\'JetBrains Mono\',monospace;font-size:10px;'
+        + (readOnly ? 'background:var(--fg2);color:var(--bg);' : 'color:var(--fg3);'),
+      roleUserStyle: 'cursor:pointer;padding:5px 10px;font-family:\'JetBrains Mono\',monospace;font-size:10px;'
+        + (role === 'user' ? 'background:var(--fg2);color:var(--bg);' : 'color:var(--fg3);'),
+      roleOperatorStyle: 'cursor:pointer;padding:5px 10px;font-family:\'JetBrains Mono\',monospace;font-size:10px;'
+        + (isOperator ? 'background:var(--fg2);color:var(--bg);' : 'color:var(--fg3);'),
+      toggleLive: () => this.setState({ live: !this.live }),
+      liveLabel: this.live ? 'живой поток' : 'поток на паузе',
+      liveDotStyle: 'width:7px;height:7px;border-radius:50%;background:' + (this.live ? 'var(--ok);animation:pulse 2s infinite;' : 'var(--fg3);'),
+
+      composer: s.composer, onComposer: e => this.setState({ composer: e.target.value }),
+      onComposerKey: e => { if (e.key === 'Enter') this.send(); },
+      onSend: () => this.send(),
+      sendBtnStyle: btn(s.composer.trim() ? 'var(--accent-fill)' : 'var(--surface-2)', s.composer.trim() ? 'var(--accent-fill-fg)' : 'var(--fg3)'),
+      answer: s.answer, onAnswer: e => this.setState({ answer: e.target.value }),
+      onAnswerKey: e => { if (e.key === 'Enter') { const q = cur.messages.find(m => m.kind === 'question' && m.open); if (q) this.answerQuestion(q.id); } },
+      rejectReason: s.rejectReason, onRejectReason: e => this.setState({ rejectReason: e.target.value }),
+      rejectBtnStyle: btn(s.rejectReason.trim() ? 'var(--danger)' : 'var(--surface-2)', s.rejectReason.trim() ? '#2B0E12' : 'var(--fg3)'),
+
+      adminNav, isServices: s.adminScreen === 'services', isSecrets: s.adminScreen === 'secrets',
+      isApprovals: s.adminScreen === 'approvals', isView: s.adminScreen === 'view',
+      serviceTabs, tabAllow: s.servicesTab === 'allow', tabIrr: s.servicesTab === 'irr', tabRules: s.servicesTab === 'rules',
+      allowRows, irrRows, ruleRows, secretRows,
+      openEndpointWizard: () => this.openWizard('endpoint'), openSecretWizard: () => this.openWizard('secret'),
+      approvalRows, approvalCount: pending.length, approvalsEmpty: s.approvals.length === 0, approval,
+      instanceRows, view, wizard, confirm,
+      toasts: s.toasts.map(t => ({ label: t.label, text: t.text,
+        style: 'pointer-events:auto;width:300px;border:1px solid var(--accent-line);background:var(--surface);padding:11px 14px;display:flex;flex-direction:column;gap:5px;box-shadow:0 14px 34px rgba(0,0,0,.4);animation:slidein .22s ease;' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

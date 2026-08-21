@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/src/server.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json && node design/build.mjs"
   },
   "dependencies": {
     "@lpmc/contracts": "*",
@@ -13,6 +13,8 @@
     "pg": "8.13.1"
   },
   "devDependencies": {
-    "@types/pg": "8.11.10"
+    "@types/pg": "8.11.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }

@@ -61,7 +61,13 @@ export async function getTaskFull(pool: pg.Pool, id: string): Promise<unknown | 
     try {
       const dl = await pool.query<{ text: string; created_at: Date }>(
         "SELECT text, created_at FROM lina.web_deliveries($1)", [`web-${id}`]);
-      dl.rows.forEach((x, i) => messages.push({ id: `dl${i}`, kind: "reply", at: x.created_at, text: x.text, fromExecutor: true }));
+      dl.rows.forEach((x, i) => {
+        const isResult = /нужна проверка|результат/i.test(x.text) && !/принят/i.test(x.text);
+        messages.push(isResult
+          ? { id: `dl${i}`, kind: "result", at: x.created_at, title: "результат исполнителя", text: x.text,
+              artifacts: [], decision: t.status === "done" ? "accepted" : null }
+          : { id: `dl${i}`, kind: "note", at: x.created_at, text: x.text });
+      });
     } catch { /* мост ещё не доступен — не критично */ }
   }
   return { task: t, dialog: d.rows[0], messages, comments: c.rows.map((x) => ({ author: x.author, text: x.text, at: x.created_at })) };
@@ -71,8 +77,8 @@ export async function createTask(pool: pg.Pool, title: string, owner: string): P
   const id = `t-${randomUUID().slice(0, 8)}`;
   const lina = buildLinaText({ title, owner, dod: "" });
   await pool.query(
-    `INSERT INTO web_tasks (id, title, owner, status, prio, start_date, lina_text)
-     VALUES ($1, $2, $3, 'todo', 'обычный', current_date, $4)`, [id, title, owner, lina]);
+    `INSERT INTO web_tasks (id, title, owner, status, prio, start_date, due_date, lina_text)
+     VALUES ($1, $2, $3, 'todo', 'обычный', current_date, current_date + 3, $4)`, [id, title, owner, lina]);
   const dialogId = await ensureDialog(pool, id);
   const t = (await getTask(pool, id))!;
   const owners = await knownOwners(pool);
