@@ -82,6 +82,10 @@
     if (origCDM) try { origCDM.call(this); } catch (e) { /* оригинальные таймеры */ }
     // Стереть мок-данные и загрузить живые.
     this.setState({ tasks: [], dialogs: [], allow: [], irr: [], rules: [], secrets: [], approvals: [], instances: [] });
+    // На телефоне стартуем со списка задач: чат открывается тапом по задаче.
+    if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 680px)").matches) {
+      this.setState({ chatHidden: true });
+    }
     this.loadAll(this.state.selectedTask);
     this.loadAdmin();
     this.__poll = setInterval(() => {

@@ -1,0 +1,41 @@
+/* Мобильная адаптация LPMC. Дополняет базовые брейкпоинты макета (до 820px):
+   ниже них макет не рассчитан. Телефоны и узкие планшеты. */
+
+@media (max-width: 680px) {
+  /* Верхняя навигация: у макета фиксированная высота и overflow:hidden — на узком
+     экране правый таб обрезается. Разрешаем перенос вместо обрезки. */
+  [data-mob="topnav"] {
+    height: auto !important;
+    overflow: visible !important;
+    flex-wrap: wrap !important;
+    padding: 8px 12px !important;
+    gap: 8px 12px !important;
+  }
+
+  /* Диалог задачи: на телефоне — полноэкранный оверлей (у макета он 380px).
+     Закрывается кнопкой ✕ в шапке чата (hideChat) — возврат к списку. */
+  [data-role="chatpanel"] {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    z-index: 100 !important;
+    box-shadow: none !important;
+  }
+
+  /* Таблица задач шире экрана (grid min-width:760px) — горизонтальная прокрутка. */
+  [data-role="tasksbody"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Админка: узкая иконочная навигация и один столбец. */
+  [data-role="adminnav"] { width: 52px !important; }
+  [data-role="twocol"] { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 430px) {
+  html, body { font-size: 12px; }
+  /* Тосты и модалки — не шире экрана. */
+  [data-mob="topnav"] { padding: 8px 10px !important; gap: 6px 10px !important; }
+}

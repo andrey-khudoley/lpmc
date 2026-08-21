@@ -11,6 +11,11 @@ mkdirSync(pub, { recursive: true });
 
 let html = readFileSync(join(here, "LPMC.dc.html"), "utf8");
 const bridge = readFileSync(join(here, "bridge.js"), "utf8");
+const mobile = readFileSync(join(here, "mobile.css"), "utf8");
+
+// 0) Зацепка на верхнюю навигацию (у макета нет data-role) + мобильные стили.
+html = html.replace('<div style="height:54px;', '<div data-mob="topnav" style="height:54px;');
+html = html.replace("</head>", "<style>\n" + mobile + "\n</style>\n</head>");
 
 // 1) React перед support.js
 html = html.replace('<script src="./support.js"></script>',
