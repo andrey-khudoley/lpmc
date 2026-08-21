@@ -86,6 +86,42 @@ export function missingField(t: TaskFields): "owner" | "dod" | null {
   return null;
 }
 
+/**
+ * Разбор свободной реплики в общий диалог Лины: «добавь задачу … от клиента …».
+ * Слаги владельцев — латиница, тексты задач — кириллица, поэтому владелец
+ * отделяется от темы надёжно. Возвращает тему (title) и, если распознан,
+ * действующего владельца. Владелец сверяется со списком, чтобы не создать задачу
+ * на несуществующего клиента — тогда Лина переспросит.
+ */
+export function parseInbox(text: string, knownOwners: readonly string[]): { owner: string | undefined; title: string } {
+  let t = text.trim();
+  // Снять ведущий глагол намерения и слово «задача», если они есть.
+  t = t.replace(
+    /^\s*(?:лина[,:\s]+)?(?:пожалуйста[,:\s]+)?(?:добав\S*|созда\S*|заведи\S*|сделай|поставь|нов\S*)\s+(?:задач\S*|таск\S*)?\s*[:\-—]?\s*/i,
+    "");
+
+  let owner: string | undefined;
+  const strip = (frag: string): void => { t = t.replace(frag, " "); };
+  const phrases = [
+    /(?:^|\s)(?:от|для)\s+(?:клиент\S*\s+|владельц\S*\s+)?([a-z0-9][a-z0-9-]+)/i,
+    /(?:^|\s)(?:клиент\S*|владел\S*|owner)\s+([a-z0-9][a-z0-9-]+)/i,
+  ];
+  for (const re of phrases) {
+    const mm = re.exec(t);
+    if (mm && knownOwners.includes(mm[1]!.toLowerCase())) { owner = mm[1]!.toLowerCase(); strip(mm[0]); break; }
+  }
+  // Голый слаг известного владельца где-либо в тексте (тема — кириллица, потому
+  // латинский слаг в ней не встречается и ложного срабатывания не даёт).
+  if (!owner) {
+    for (const o of knownOwners) {
+      const re = new RegExp("(?:^|\\s)" + o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?=\\s|$)", "i");
+      if (re.test(t)) { owner = o; t = t.replace(re, " "); break; }
+    }
+  }
+  const title = t.replace(/\s+/g, " ").replace(/^[\s,;:.—-]+|[\s,;:.—-]+$/g, "").trim();
+  return { owner, title };
+}
+
 export function questionFor(field: "owner" | "dod"): { field: string; text: string; placeholder: string } {
   if (field === "owner") {
     return {

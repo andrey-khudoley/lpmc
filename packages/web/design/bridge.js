@@ -87,13 +87,16 @@
   P.componentDidMount = function () {
     if (origCDM) try { origCDM.call(this); } catch (e) { /* оригинальные таймеры */ }
     // Стереть мок-данные и загрузить живые.
-    this.setState({ tasks: [], dialogs: [], allow: [], irr: [], rules: [], secrets: [], approvals: [], instances: [] });
+    // selectedTask сбрасываем: мок-дефолт 't1' реальной задачей не подкреплён,
+    // а при нём общий диалог Лины не считался бы активным.
+    this.setState({ tasks: [], dialogs: [], inbox: [], selectedTask: null, allow: [], irr: [], rules: [], secrets: [], approvals: [], instances: [] });
     // На телефоне стартуем со списка задач: чат открывается тапом по задаче.
     if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 680px)").matches) {
       this.setState({ chatHidden: true });
     }
     this.loadAll(this.state.selectedTask);
     this.loadAdmin();
+    this.loadInbox();
     this.__poll = setInterval(() => {
       const t = (this.state.tasks || []).find((x) => x.id === this.state.selectedTask);
       if (t && t.status === "doing" && this.live) this.loadAll(this.state.selectedTask);
@@ -101,11 +104,25 @@
   };
   P.mockDelivery = function () { /* реальный поток вместо симуляции */ };
 
+  P.loadInbox = async function () {
+    try { const r = await jx("lina/inbox"); this.setState({ inbox: (r.messages || []).map(mapMsg) }); }
+    catch (e) { /* общий диалог не критичен для остального интерфейса */ }
+  };
   P.send = async function () {
-    const text = (this.state.composer || "").trim(); if (!text || !this.state.selectedTask) return;
+    const text = (this.state.composer || "").trim(); if (!text) return;
+    // Диалог задачи — только если выбранная задача реально есть в списке (иначе
+    // это общий диалог Лины: тот же критерий, что у ct в рендере чата).
+    const sel = this.state.selectedTask;
+    const onTask = sel && (this.state.tasks || []).some((t) => t.id === sel);
     this.setState({ composer: "" });
-    try { await jx("tasks/" + this.state.selectedTask + "/message", "POST", { text }); } catch (e) { this.toast("ошибка", e.message); }
-    await this.loadAll(this.state.selectedTask);
+    if (!onTask) {
+      try { await jx("lina/inbox", "POST", { text }); } catch (e) { this.toast("ошибка", e.message); }
+      await this.loadInbox();
+      await this.loadAll(null);
+      return;
+    }
+    try { await jx("tasks/" + sel + "/message", "POST", { text }); } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAll(sel);
   };
   P.answerQuestion = async function () {
     const text = (this.state.answer || "").trim(); if (!text || !this.state.selectedTask) return;

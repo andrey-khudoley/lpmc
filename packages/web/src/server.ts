@@ -84,6 +84,10 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
     if (action === "move" && m === "POST") return json(res, 200, await store.moveTask(pool, id, Number(body["dir"] ?? 1)) ?? { error: "нет задачи" });
   }
 
+  // ---- Общий диалог Лины («входящие») ----
+  if (path === "/api/lina/inbox" && m === "GET") return json(res, 200, await store.getInbox(pool));
+  if (path === "/api/lina/inbox" && m === "POST") return json(res, 200, await store.inboxMessage(pool, str(body["text"])));
+
   // ---- Админ ----
   if (path === "/api/admin/owners" && m === "GET") return json(res, 200, await admin.owners(pool));
   if (path === "/api/admin/services" && m === "GET") return json(res, 200, await admin.services(pool));

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
-import { buildLinaText, missingField, parseCommand, questionFor, type Patch } from "./lina.js";
+import { buildLinaText, missingField, parseCommand, parseInbox, questionFor, type Patch } from "./lina.js";
 
 export interface TaskRow {
   id: string; title: string; owner: string; status: string; prio: string;
@@ -231,6 +231,86 @@ export async function reviewDecision(pool: pg.Pool, taskId: string, decision: st
 export async function deleteTask(pool: pg.Pool, taskId: string): Promise<{ ok: boolean }> {
   await pool.query("DELETE FROM web_tasks WHERE id = $1", [taskId]);
   return { ok: true };
+}
+
+// ---- Общий диалог Лины («входящие») ---------------------------------------
+//
+// Оператор описывает задачу словами; Лина квалифицирует и создаёт задачу. Тот же
+// детерминированный разбор, что в диалоге задачи, но точкой входа служит не
+// существующая задача, а свободная реплика. Незавершённая квалификация (тема без
+// владельца) держится в payload последнего вопроса — awaiting/draft.
+
+async function insertInbox(pool: pg.Pool, kind: string, payload: object): Promise<void> {
+  await pool.query("INSERT INTO web_inbox (kind, payload) VALUES ($1, $2::jsonb)", [kind, JSON.stringify(payload)]);
+}
+
+export async function getInbox(pool: pg.Pool): Promise<{ messages: unknown[] }> {
+  const r = await pool.query<{ id: string; kind: string; payload: object; created_at: Date }>(
+    "SELECT id, kind, payload, created_at FROM web_inbox ORDER BY id");
+  return { messages: r.rows.map((x) => ({ id: `in${x.id}`, kind: x.kind, at: x.created_at, ...(x.payload as object) })) };
+}
+
+function ownersHint(owners: string[]): string {
+  return owners.length ? `Известные клиенты: ${owners.join(", ")}.` : "Сначала заведите клиента в разделе «Клиенты».";
+}
+
+async function createFromInbox(pool: pg.Pool, title: string, owner: string): Promise<string> {
+  const t = await createTask(pool, title, owner);
+  await insertInbox(pool, "reply", {
+    text: `Создал задачу «${title}» для клиента ${owner}. Открой её в списке — уточню критерии приёмки и можно передать исполнителю.`,
+    taskId: t.id,
+  });
+  return t.id;
+}
+
+/** Приём реплики в общий диалог. Может создать задачу и вернуть её id. */
+export async function inboxMessage(pool: pg.Pool, text: string): Promise<{ messages: unknown[]; createdTaskId?: string }> {
+  const clean = text.trim();
+  if (!clean) return getInbox(pool);
+
+  const owners = await knownOwners(pool);
+  const createVerb = /(?:добав|созда|заведи|нов\S*\s+задач)/i.test(clean);
+
+  // Ждём ли ответа на вопрос о владельце? Смотрим последнюю реплику ДО этой.
+  const last = await pool.query<{ awaiting: string | null; draft: string | null }>(
+    "SELECT payload->>'awaiting' AS awaiting, payload->>'draft' AS draft FROM web_inbox ORDER BY id DESC LIMIT 1");
+  const awaiting = last.rows[0]?.awaiting ?? null;
+  const draft = last.rows[0]?.draft ?? "";
+
+  await insertInbox(pool, "you", { text: clean });
+
+  // Ответ на вопрос о клиенте (если это не явно новая задача).
+  if (awaiting === "owner" && !createVerb) {
+    const direct = clean.toLowerCase().trim();
+    const owner = owners.includes(direct) ? direct : parseInbox(clean, owners).owner;
+    if (owner) {
+      const id = await createFromInbox(pool, draft || "Новая задача", owner);
+      return { ...(await getInbox(pool)), createdTaskId: id };
+    }
+    await insertInbox(pool, "reply", {
+      text: `Не узнал клиента «${clean}». ${ownersHint(owners)} Для какого из них задача «${draft}»?`,
+      awaiting: "owner", draft,
+    });
+    return getInbox(pool);
+  }
+
+  // Новая реплика: квалифицируем как задачу.
+  const { owner, title } = parseInbox(clean, owners);
+  if (!title) {
+    await insertInbox(pool, "reply", {
+      text: "Опиши, что нужно сделать и для какого клиента. Например: «добавь задачу обновить лендинг для клиента notion-demo».",
+    });
+    return getInbox(pool);
+  }
+  if (!owner) {
+    await insertInbox(pool, "reply", {
+      text: `Принял задачу «${title}». Для какого клиента её завести? ${ownersHint(owners)}`,
+      awaiting: "owner", draft: title,
+    });
+    return getInbox(pool);
+  }
+  const id = await createFromInbox(pool, title, owner);
+  return { ...(await getInbox(pool)), createdTaskId: id };
 }
 
 export async function moveTask(pool: pg.Pool, taskId: string, dir: number): Promise<unknown | null> {

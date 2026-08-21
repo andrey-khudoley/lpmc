@@ -279,26 +279,32 @@
             <sc-if value="{{ chat.exists }}" hint-placeholder-val="{{ true }}">
               <div style="flex:none;border-bottom:1px solid var(--line);padding:13px 16px;display:flex;flex-direction:column;gap:9px;">
                 <div style="display:flex;align-items:center;gap:9px;">
-                  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">лина · диалог задачи</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">{{ chat.headLabel }}</span>
                   <span style="flex:1;"></span>
-                  <span onClick="{{ chat.onCard }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);border:1px solid var(--line-2);padding:4px 8px;" style-hover="color:var(--fg);border-color:var(--fg3)">карточка ↗</span>
-                  <span onClick="{{ hideChat }}" title="скрыть чат" style="cursor:pointer;color:var(--fg3);font-size:15px;line-height:1;padding:0 2px;" style-hover="color:var(--fg)">✕</span>
+                  <sc-if value="{{ chat.showCard }}" hint-placeholder-val="{{ true }}">
+                    <span onClick="{{ chat.onCard }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);border:1px solid var(--line-2);padding:4px 8px;" style-hover="color:var(--fg);border-color:var(--fg3)">карточка ↗</span>
+                  </sc-if>
+                  <span onClick="{{ chat.onClose }}" title="закрыть" style="cursor:pointer;color:var(--fg3);font-size:15px;line-height:1;padding:0 2px;" style-hover="color:var(--fg)">✕</span>
                 </div>
                 <span style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;line-height:1.35;">{{ chat.title }}</span>
+                <sc-if value="{{ chat.isTask }}" hint-placeholder-val="{{ true }}">
                 <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
                   <span style="{{ chat.statusStyle }}">{{ chat.statusLabel }}</span>
                   <span style="{{ chat.prioStyle }}">{{ chat.prio }}</span>
                   <span style="{{ chat.dueStyle }}">{{ chat.dueLabel }}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ chat.owner }}</span>
                 </div>
+                </sc-if>
               </div>
 
               <div style="flex:1;overflow:auto;min-height:0;padding:16px;display:flex;flex-direction:column;gap:14px;">
                 <sc-if value="{{ chat.fresh }}" hint-placeholder-val="{{ false }}">
                   <div style="display:flex;flex-direction:column;gap:12px;animation:rise .25s ease;">
                     <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">диалог не начат</span>
-                    <span style="font-size:13px;line-height:1.65;color:var(--fg2);text-wrap:pretty;">Обсудите задачу здесь. Ассистент правит поля до передачи исполнителю: напишите «срок 25.08», «владелец kz-central», «приоритет высокий», «статус в работе» или «переименуй …».</span>
+                    <span style="font-size:13px;line-height:1.65;color:var(--fg2);text-wrap:pretty;">{{ chat.introText }}</span>
+                    <sc-if value="{{ chat.isTask }}" hint-placeholder-val="{{ true }}">
                     <div style="border:1px dashed var(--accent-line);background:var(--surface);padding:12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.75;color:var(--fg2);white-space:pre-line;">{{ chat.linaText }}</div>
+                    </sc-if>
                   </div>
                 </sc-if>
 
@@ -1569,7 +1575,9 @@ class Component extends DCLogic {
     ] : [];
 
     const chat = ct ? {
-      exists: true, none: false, title: ct.title, owner: ct.owner,
+      exists: true, none: false, isInbox: false, isTask: true, showCard: true,
+      headLabel: 'лина · диалог задачи', title: ct.title, owner: ct.owner,
+      introText: 'Обсудите задачу здесь. Ассистент правит поля до передачи исполнителю: напишите «срок 25.08», «клиент notion-demo», «приоритет высокий», «статус в работе» или «переименуй …».',
       statusLabel: this.taskStatusMeta(ct.status)[0], statusStyle: this.chip(this.taskStatusMeta(ct.status)[1]),
       prio: ct.prio, prioStyle: prioStyle(ct.prio), dueLabel: dueChip(ct).label, dueStyle: dueChip(ct).style,
       linaText: ct.lina, fresh: !curThread || curThread.messages.length === 0,
@@ -1578,8 +1586,19 @@ class Component extends DCLogic {
       placeholder: handed ? 'Сообщение в диалог задачи' : 'Обсудить задачу или поправить поле',
       handoverStyle: btn('var(--accent-fill)', 'var(--accent-fill-fg)') + 'padding:10px 16px;',
       onHandover: () => this.handover(ct.id),
-      onCard: () => this.setState({ cardOpen: true })
-    } : { exists: false, none: true, messages: [], quick: [] };
+      onCard: () => this.setState({ cardOpen: true }),
+      onClose: () => this.setState({ selectedTask: null, activeId: null, cardOpen: false })
+    } : {
+      // Общий диалог с Линой: точка входа без выбранной задачи. Сюда пишут
+      // «добавь задачу … для клиента …», Лина квалифицирует и создаёт задачу.
+      exists: true, none: false, isInbox: true, isTask: false, showCard: false,
+      headLabel: 'лина · общий диалог', title: 'Лина', owner: '',
+      introText: 'Опишите задачу — Лина квалифицирует и создаст её. Например: «добавь задачу обновить лендинг для клиента notion-demo». Если не хватает клиента или критериев приёмки — Лина переспросит.',
+      fresh: !(s.inbox && s.inbox.length), messages: (s.inbox || []).map(mapMsg),
+      working: false, handed: false, canHandover: false, quickOn: false, quick: [],
+      placeholder: 'Опишите задачу: что сделать и для какого клиента',
+      onClose: () => this.setState({ chatHidden: true })
+    };
 
     const card = ct && s.cardOpen ? {
       open: true, id: ct.id, title: ct.title, desc: ct.desc, linaText: ct.lina,
