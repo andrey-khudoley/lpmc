@@ -177,9 +177,10 @@
       };
     }
     // Удаление задачи из карточки (кнопка «Удалить» в футере).
-    if (v && v.card && v.card.exists && !v.readOnly) {
+    // У открытой карточки поле — open:true (не exists).
+    if (v && v.card && v.card.open && !v.readOnly) {
       v.card.onDelete = async () => {
-        const id = this.state.selectedTask; if (!id) return;
+        const id = v.card.id || this.state.selectedTask; if (!id) return;
         if (typeof window !== "undefined" && !window.confirm("Удалить задачу безвозвратно?")) return;
         try { await jx("tasks/" + id, "DELETE"); this.toast("задача", "удалена"); } catch (e) { this.toast("ошибка", e.message); }
         this.setState({ cardOpen: false, selectedTask: null, chatHidden: true });
