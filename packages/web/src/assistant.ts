@@ -82,6 +82,72 @@ function detect(low: string): string {
   return "";
 }
 
+function jparse(raw: string): Record<string, unknown> | null {
+  const s = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try { return JSON.parse(s) as Record<string, unknown>; } catch { return null; }
+}
+
+/**
+ * Интерпретация запроса моделью для конкретной сущности. Возвращает готовый ответ
+ * (создано / честный отказ), либо null — чтобы отдать детерминированному разбору
+ * (для структурных сущностей это нормальный запасной путь; для типа задачи, где
+ * важна свободная формулировка, при отказе модели возвращаем честный текст).
+ */
+async function viaModel(pool: pg.Pool, entity: string, text: string, owners: string[]): Promise<string | null> {
+  const ownersLine = owners.length ? owners.join(", ") : "internal";
+  const isType = entity === "tasktype" || entity === "type";
+  let system: string;
+  if (entity === "client") system = `Ты заводишь клиента (владельца) LPMC по запросу оператора. Верни ТОЛЬКО JSON {"slug":"...","category":"..."} без markdown. slug — строчная латиница, цифры и дефис, нормализуй из названия (пробелы → дефисы, кириллицу транслитерируй); category — одно из: client, project, internal.`;
+  else if (entity === "endpoint" || entity === "allow") system = `Ты разрешаешь внешний эндпоинт (allowlist). Верни ТОЛЬКО JSON {"owner","host","methods","paths","op"} без markdown. owner — один из: ${ownersLine}; host — домен; methods — массив из GET,POST,PUT,PATCH,DELETE; paths — массив префиксов путей или []; op — одно из: auto, read, write, delete.`;
+  else if (entity === "rule") system = `Ты заводишь правило выдачи полномочий. Верни ТОЛЬКО JSON {"sender","owner","caps","exec","lease","appr"} без markdown. sender вида cli:актор (для веб-оператора cli:operator); owner — один из: ${ownersLine}; caps — массив из page.read, page.screenshot, report.build, api.read, record.create; exec — mita или cita; lease — число секунд; appr — true или false.`;
+  else if (isType) system = TASKTYPE_SYSTEM;
+  else return null;
+
+  const r = await llm.complete(pool, system, text);
+  if (!r.ok) return isType ? `Модель недоступна: ${r.errors.join("; ")}. Не создано — дождитесь сброса лимитов или добавьте ключ Anthropic/OpenAI в разделе «Модель».` : null;
+  const o = jparse(r.text);
+  if (!o) return isType ? "Модель ответила не в ожидаемом формате — ничего не создано." : null;
+
+  try {
+    if (entity === "client") {
+      const slug = String(o["slug"] ?? "").toLowerCase().trim();
+      if (!/^[a-z0-9-]{1,64}$/.test(slug)) return null;
+      const category = ["client", "project", "internal"].includes(String(o["category"])) ? String(o["category"]) : "client";
+      await admin.addOwner(pool, slug, category);
+      return `Клиент «${slug}» (${category}) заведён моделью (${r.provider}).`;
+    }
+    if (entity === "endpoint" || entity === "allow") {
+      const host = String(o["host"] ?? "").trim();
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(host)) return null;
+      const owner = owners.includes(String(o["owner"])) ? String(o["owner"]) : (owners[0] ?? "internal");
+      const rawM = Array.isArray(o["methods"]) ? (o["methods"] as unknown[]).map((x) => String(x).toUpperCase()).filter((x) => METHODS.includes(x)) : [];
+      const methods = rawM.length ? rawM : ["GET"];
+      const paths = Array.isArray(o["paths"]) ? (o["paths"] as unknown[]).map(String) : [];
+      const op = ["auto", "read", "write", "delete"].includes(String(o["op"])) ? String(o["op"]) : "auto";
+      await admin.addAllow(pool, { owner, host, methods, paths, op });
+      return `Готово моделью (${r.provider}): ${owner} → ${host} [${methods.join(", ")}]${paths.length ? ", пути " + paths.join(",") : ""}, операция ${op}.`;
+    }
+    if (entity === "rule") {
+      const sender = /^[a-z]+:[a-z0-9_.-]+$/i.test(String(o["sender"] ?? "")) ? String(o["sender"]) : "cli:operator";
+      const owner = owners.includes(String(o["owner"])) ? String(o["owner"]) : (owners[0] ?? "internal");
+      const caps = Array.isArray(o["caps"]) ? (o["caps"] as unknown[]).map(String).filter((x) => CAPS.includes(x)) : [];
+      if (!caps.length) return null;
+      const exec = o["exec"] === "cita" ? "cita" : "mita";
+      const lease = Number(o["lease"]) || 1800;
+      const appr = !!o["appr"];
+      await admin.addRule(pool, { sender, owner, caps, exec, lease, appr });
+      return `Правило заведено моделью (${r.provider}): ${sender} → ${owner}, полномочия [${caps.join(", ")}], исполнитель ${exec}, лизинг ${lease}с${appr ? ", с подтверждением" : ""}.`;
+    }
+    if (isType) {
+      const f = parseTaskType(r.text);
+      if (!f) return "Модель ответила не в ожидаемом формате — тип не создан.";
+      await addTaskType(pool, f);
+      return `Тип «${f.name}» добавлен моделью (${r.provider}) — ключевые слова, исполнитель (${f.executor})${f.dod_template ? ", критерии " + f.dod_template : ""}. Проверьте кнопкой «изменить».`;
+    }
+  } catch (e) { return `Не смог создать: ${e instanceof Error ? e.message : String(e)}`; }
+  return null;
+}
+
 async function handle(pool: pg.Pool, text: string, scope: string): Promise<string> {
   const low = text.toLowerCase();
   const owners = await ownerSlugs(pool);
@@ -89,6 +155,14 @@ async function handle(pool: pg.Pool, text: string, scope: string): Promise<strin
   const findOwner = (): string | undefined =>
     owners.find((o) => new RegExp("(?:^|\\s)" + esc(o) + "(?=\\s|$)", "i").test(text));
   const entity = scope || detect(low);
+
+  // Модель — первым делом, если включён провайдер. Успех/честный отказ по типу
+  // задачи возвращаем сразу; для структурных сущностей null → детерминированный
+  // разбор ниже (он и без модели справляется с короткой командой).
+  if (entity !== "secret" && await llm.anyEnabled(pool)) {
+    const m = await viaModel(pool, entity, text, owners);
+    if (m !== null) return m;
+  }
 
   if (entity === "rule") {
     const sender = (/cli:[a-z0-9_.-]+/i.exec(text) ?? [])[0] ?? "cli:operator";
@@ -116,23 +190,8 @@ async function handle(pool: pg.Pool, text: string, scope: string): Promise<strin
   }
 
   if (entity === "tasktype" || entity === "type") {
-    // Есть включённая модель — интерпретируем ею (заполняет все поля). Если модель
-    // включена, но недоступна (лимит/ошибка) — тип НЕ создаём и говорим почему,
-    // чтобы не плодить пустой мусор.
-    if (await llm.anyEnabled(pool)) {
-      const r = await llm.complete(pool, TASKTYPE_SYSTEM, text);
-      if (r.ok) {
-        const fields = parseTaskType(r.text);
-        if (fields) {
-          await addTaskType(pool, fields);
-          return `Тип «${fields.name}» добавлен через модель (${r.provider}) — заполнены ключевые слова, исполнитель (${fields.executor})${fields.dod_template ? ", критерии " + fields.dod_template : ""}. Проверьте кнопкой «изменить».`;
-        }
-        return "Модель ответила не в ожидаемом формате — тип не создан. Переформулируйте или заведите мастером «+ Тип задачи».";
-      }
-      return "Модель недоступна: " + r.errors.join("; ") + ". Тип не создан — дождитесь сброса лимитов, добавьте ключ Anthropic/OpenAI в разделе «Модель» или заведите мастером «+ Тип задачи».";
-    }
-    // Модель не включена: по короткому названию заведём, по свободной фразе —
-    // попросим включить модель, а не свалим предложение в название.
+    // Сюда доходим только когда модель выключена: по короткому названию заведём,
+    // по свободной фразе — попросим включить модель, а не свалим предложение в имя.
     let name = (/тип\S*(?:\s+задач\S*)?\s+[«"]?(.+?)[»"]?\s*$/i.exec(text) ?? [])[1] ?? "";
     if (!name) name = text.replace(/^\s*(?:добав\S*|созда\S*|заведи\S*|нов\S*)\s+(?:тип\S*(?:\s+задач\S*)?)?\s*/i, "").replace(/[«»"]/g, "").trim();
     const sentence = name.length > 60 || /[.!?]\s|\s-\s|,/.test(name);

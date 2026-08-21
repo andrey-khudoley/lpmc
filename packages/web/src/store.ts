@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { buildLinaText, missingField, parseCommand, parseInbox, questionFor, type Patch } from "./lina.js";
+import * as llm from "./llm.js";
+
+function jparse(raw: string): Record<string, unknown> | null {
+  const s = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try { return JSON.parse(s) as Record<string, unknown>; } catch { return null; }
+}
+const DOD_FORM = /^(page-contains|http-status|artifact-exists|rows-at-least|record-created)\b/i;
 
 export interface TaskRow {
   id: string; title: string; owner: string; status: string; prio: string;
@@ -267,6 +274,39 @@ async function createFromInbox(pool: pg.Pool, title: string, owner: string): Pro
   return t.id;
 }
 
+const LINA_SYSTEM = (owners: string[]): string => [
+  "Ты Лина — квалификатор задач в системе LPMC. Ведёшь диалог с оператором и превращаешь свободную формулировку в задачу.",
+  `Верни ТОЛЬКО JSON без markdown: {"title":"...","owner":"...|null","dod":"...","ready":true|false,"reply":"..."}.`,
+  `owner — один из: ${owners.length ? owners.join(", ") : "internal"}, либо null если клиент не назван.`,
+  "title — краткая суть задачи. dod — критерии приёмки в машинной форме (одна из: 'page-contains https://ХОСТ/ \"СТРОКА\"' | 'http-status https://ХОСТ/ = 200' | 'artifact-exists report' | 'rows-at-least N' | 'record-created \"НАЗВАНИЕ\"'), плейсхолдеры оставляй ЗАГЛАВНЫМИ; пустая строка, если критерии пока не ясны.",
+  "ready — true, только если известны и суть, и владелец. reply — короткий ответ оператору: подтверждение создания либо уточняющий вопрос про недостающее (клиент или критерии).",
+].join(" ");
+
+/** Квалификация Лины моделью: интерпретирует диалог, создаёт задачу или уточняет.
+ *  null — модель выключена/недоступна/невалидна, тогда работает детерминированный разбор. */
+async function linaViaModel(pool: pg.Pool, owners: string[]): Promise<{ messages: unknown[]; createdTaskId?: string } | null> {
+  const h = await pool.query<{ kind: string; text: string }>(
+    "SELECT kind, payload->>'text' AS text FROM web_inbox ORDER BY id DESC LIMIT 8");
+  const convo = h.rows.reverse().map((r) => `${r.kind === "you" ? "оператор" : "лина"}: ${r.text}`).join("\n");
+  const r = await llm.complete(pool, LINA_SYSTEM(owners), convo);
+  if (!r.ok) return null;
+  const o = jparse(r.text);
+  if (!o) return null;
+  const title = String(o["title"] ?? "").trim();
+  const ownerRaw = o["owner"] == null ? "" : String(o["owner"]).toLowerCase().trim();
+  const owner = owners.includes(ownerRaw) ? ownerRaw : "";
+  const dod = String(o["dod"] ?? "").trim();
+  const reply = String(o["reply"] ?? "").trim();
+  if (o["ready"] === true && title && owner) {
+    const t = await createTask(pool, title, owner);
+    if (DOD_FORM.test(dod)) await patchTask(pool, t.id, { dod });
+    await insertInbox(pool, "reply", { text: reply || `Создал задачу «${title}» для клиента ${owner}.`, taskId: t.id });
+    return { ...(await getInbox(pool)), createdTaskId: t.id };
+  }
+  await insertInbox(pool, "reply", { text: reply || "Уточните, что нужно сделать и для какого клиента." });
+  return getInbox(pool);
+}
+
 /** Приём реплики в общий диалог. Может создать задачу и вернуть её id. */
 export async function inboxMessage(pool: pg.Pool, text: string): Promise<{ messages: unknown[]; createdTaskId?: string }> {
   const clean = text.trim();
@@ -282,6 +322,13 @@ export async function inboxMessage(pool: pg.Pool, text: string): Promise<{ messa
   const draft = last.rows[0]?.draft ?? "";
 
   await insertInbox(pool, "you", { text: clean });
+
+  // Квалификация моделью, если включён провайдер (ведёт диалог и наполняет поля).
+  // Недоступна/невалидна — падаем на детерминированный разбор ниже.
+  if (await llm.anyEnabled(pool)) {
+    const viaModel = await linaViaModel(pool, owners);
+    if (viaModel) return viaModel;
+  }
 
   // Ответ на вопрос о клиенте (если это не явно новая задача).
   if (awaiting === "owner" && !createVerb) {
