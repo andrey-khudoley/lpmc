@@ -65,9 +65,10 @@
 
   P.loadAdmin = async function () {
     try {
-      const [sv, se, ap, ow] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners")]);
+      const [sv, se, ap, ow, tt] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners"), jx("tasktypes")]);
       const stateLabel = (s) => s === "approved" ? "подтверждено" : s === "denied" ? "отказано" : s === "pending" ? "ожидает" : s;
       this.setState({
+        taskTypes: (tt.types || []).map((t) => ({ id: t.id, name: t.name, keywords: t.keywords, executor: t.executor, clarify: t.clarify, dod_template: t.dod_template })),
         // Для выбора владельца в мастерах — только действующие: архивный лишён
         // правил и привязок, обращение к нему получило бы отказ на валидации.
         realOwners: (ow.owners || []).filter((o) => !o.archived).map((o) => o.slug),
@@ -220,6 +221,13 @@
     await this.loadAdmin();
   };
 
+  P.delTaskType = async function (t) {
+    if (typeof window !== "undefined" && !window.confirm("Удалить тип задачи «" + t.name + "»?")) return;
+    try { await jx("tasktypes/" + t.id, "DELETE"); this.toast("типы задач", "тип удалён"); }
+    catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+
   P.delRuleRow = async function (r) {
     if (typeof window !== "undefined" && !window.confirm("Удалить правило «" + r.sender + " → " + r.owner + "»?")) return;
     try { await jx("admin/rule/" + r.id, "DELETE"); this.toast("политика", "правило удалено"); }
@@ -234,6 +242,14 @@
         if (!/^[a-z0-9-]{1,64}$/.test(w.slug || "")) { this.setState((s) => ({ wizard: Object.assign({}, s.wizard, { err: "слаг: строчная латиница, цифры, дефис — до 64 символов" }) })); return; }
         await jx("admin/owner", "POST", { slug: w.slug, category: w.category || "client" });
         this.toast("владельцы", "клиент " + w.slug + " добавлен"); this.setState({ wizard: null }); await this.loadAdmin();
+        return;
+      }
+      if (w.kind === "tasktype") {
+        if (!(w.name || "").trim()) { this.setState((s) => ({ wizard: Object.assign({}, s.wizard, { err: "укажите название типа" }) })); return; }
+        const body = { name: w.name.trim(), keywords: w.keywords || "", executor: w.executor || "", clarify: w.clarify || "", dod_template: w.dod_template || "" };
+        if (w.id) { await jx("tasktypes/" + w.id, "POST", body); this.toast("типы задач", "тип обновлён"); }
+        else { await jx("tasktypes", "POST", body); this.toast("типы задач", "тип добавлен"); }
+        this.setState({ wizard: null }); await this.loadAdmin();
         return;
       }
       if (w.kind === "rule") {

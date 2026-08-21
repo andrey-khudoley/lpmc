@@ -823,6 +823,42 @@
           </div>
         </sc-if>
 
+        <!-- ── Типы задач (инструкции Лины) ── -->
+        <sc-if value="{{ isTypes }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.5 Типы задач · инструкции Лины" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
+            <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:7px;">
+                <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.5</span><span style="width:22px;height:1px;background:var(--line-2);"></span>квалификация</span>
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Типы задач и инструкции Лины</span>
+              </div>
+              <span style="flex:1;"></span>
+              <span onClick="{{ openTypeWizard }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.08)">+ Тип задачи</span>
+            </div>
+
+            <div style="border:1px solid var(--line-2);background:var(--surface);padding:11px 14px;display:flex;gap:11px;align-items:baseline;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase;flex:none;">как это работает</span>
+              <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);">По ключевым словам обращения Лина подбирает тип и подсказывает, что уточнить у пользователя и в какой машинно-проверяемой форме записать критерии приёмки (DoD). На передачу исполнителю это не влияет — только на квалификацию.</span>
+            </div>
+
+            <div style="border:1px solid var(--line);background:var(--surface);overflow:hidden;">
+              <div style="display:grid;grid-template-columns:1.3fr 1.4fr 80px 120px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                <span data-role="cell">название</span><span data-role="cell">ключевые слова</span><span data-role="cell">исполнитель</span><span data-role="cell"></span>
+              </div>
+              <sc-for list="{{ typeRows }}" as="t" hint-placeholder-count="3">
+                <div style="{{ t.rowStyle }}" style-hover="background:var(--surface-2)">
+                  <span data-role="cell" style="font-size:12.5px;color:var(--fg);">{{ t.name }}</span>
+                  <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);">{{ t.keywords }}</span>
+                  <span data-role="cell"><span style="{{ t.execStyle }}">{{ t.executor }}</span></span>
+                  <span data-role="cell" style="display:flex;justify-content:flex-end;gap:11px;">
+                    <span onClick="{{ t.onEdit }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--accent)">изменить</span>
+                    <span onClick="{{ t.onDelete }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">удалить</span>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
         <!-- ── Просмотр экрана ── -->
         <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="02.4 Просмотр экрана" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
@@ -1377,6 +1413,11 @@ class Component extends DCLogic {
           : { kind, step: 1, total: 1, sender: 'cli:operator',
               owner: (this.state.realOwners && this.state.realOwners[0]) || 'internal',
               caps: ['page.read', 'report.build'], exec: 'mita', lease: '1800', appr: false })
+      : kind === 'tasktype'
+      ? (seed && seed.id
+          ? { kind, step: 1, total: 1, id: seed.id, name: seed.name, keywords: seed.keywords || '',
+              executor: seed.executor || '', clarify: seed.clarify || '', dod_template: seed.dod_template || '' }
+          : { kind, step: 1, total: 1, name: '', keywords: '', executor: 'mita', clarify: '', dod_template: '' })
       : { kind, step: 1, total: 2, name: '', owner: 'acme-school', purpose: '', value: '' };
     this.setState({ wizard: w });
   }
@@ -1619,7 +1660,8 @@ class Component extends DCLogic {
       ['services', '3.1', 'Сервисы и правила', ''],
       ['secrets', '3.2', 'Секреты', ''],
       ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : ''],
-      ['clients', '3.4', 'Клиенты', s.ownerRows ? String(s.ownerRows.length) : '']
+      ['clients', '3.4', 'Клиенты', s.ownerRows ? String(s.ownerRows.length) : ''],
+      ['types', '3.5', 'Типы задач', s.taskTypes ? String(s.taskTypes.length) : '']
     ].map(([k, num, label, badge]) => ({ num, label, badge,
       onOpen: () => this.setState({ adminScreen: k }),
       style: 'cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 11px;font-size:13px;'
@@ -1703,6 +1745,14 @@ class Component extends DCLogic {
     const bindingRows = (s.bindingRows || []).map(b => ({ sender: b.sender, route: b.route || '*', owner: b.owner,
       rowStyle: row + 'grid-template-columns:1.4fr 90px 1fr;' }));
 
+    // ── типы задач (инструкции Лины)
+    const typeRows = (s.taskTypes || []).map(t => ({
+      name: t.name, keywords: t.keywords, executor: t.executor || 'любой', dod: t.dod_template || '—',
+      rowStyle: row + 'grid-template-columns:1.3fr 1.4fr 80px 120px;',
+      execStyle: this.chip('var(--fg3)'),
+      onEdit: () => this.openWizard('tasktype', t),
+      onDelete: () => this.delTaskType(t) }));
+
     // ── мастер
     const w = s.wizard;
     const pick = (on) => 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:7px 11px;border:1px solid '
@@ -1753,6 +1803,23 @@ class Component extends DCLogic {
             { label: 'не требуется', style: pick(!w.appr), onPick: () => this.setW({ appr: false }) },
             { label: 'требуется', style: pick(w.appr), onPick: () => this.setW({ appr: true }) }] }
         ];
+      } else if (w.kind === 'tasktype') {
+        title = w.id ? 'Изменить тип задачи' : 'Новый тип задачи · инструкция Лины';
+        fields = [
+          { label: 'название', isInput: true, type: 'text', value: w.name, placeholder: 'Прочитать страницу и проверить строку',
+            onInput: e => this.setW({ name: e.target.value, err: null }), hint: true,
+            hintText: 'как называется этот род задач', error: !!w.err, errorText: w.err },
+          { label: 'ключевые слова', isInput: true, type: 'text', value: w.keywords, placeholder: 'прочитать, страница, строка',
+            onInput: e => this.setW({ keywords: e.target.value }), hint: true,
+            hintText: 'через запятую; по ним Лина подбирает тип по тексту обращения' },
+          { label: 'исполнитель', isChoice: true, options: [['mita','mita'],['cita','cita'],['','любой']].map(([v,l]) => ({ label: l, style: pick(w.executor === v), onPick: () => this.setW({ executor: v }) })) },
+          { label: 'что уточнять', isInput: true, type: 'text', value: w.clarify, placeholder: 'целевой адрес; какую строку искать',
+            onInput: e => this.setW({ clarify: e.target.value }), hint: true,
+            hintText: 'какую информацию Лина должна выспросить у пользователя' },
+          { label: 'шаблон критериев (DoD)', isInput: true, type: 'text', value: w.dod_template, placeholder: 'page-contains https://ХОСТ/ "СТРОКА"',
+            onInput: e => this.setW({ dod_template: e.target.value }), hint: true,
+            hintText: 'машинно-проверяемая форма; Лина предложит её как критерий приёмки' }
+        ];
       } else if (w.kind === 'client') {
         title = 'Новый клиент · слаг и категория';
         fields = [
@@ -1783,7 +1850,7 @@ class Component extends DCLogic {
       wizard = { open: true, step: w.step, total: w.total, title, fields, warn, warnText,
         canBack: w.step > 1, onBack: () => this.setW({ step: w.step - 1, err: null }),
         onNext: () => this.submitWizard(),
-        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : w.kind === 'rule' ? (w.id ? 'Сохранить правило' : 'Завести правило') : 'Разрешить') : 'Далее →',
+        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : w.kind === 'tasktype' ? (w.id ? 'Сохранить тип' : 'Добавить тип') : w.kind === 'rule' ? (w.id ? 'Сохранить правило' : 'Завести правило') : 'Разрешить') : 'Далее →',
         nextStyle: btn(w.kind === 'secret' && last ? 'var(--danger)' : 'var(--accent-fill)', w.kind === 'secret' && last ? '#2B0E12' : 'var(--accent-fill-fg)'),
         onClose: () => this.setState({ wizard: null }), onBackdrop: () => this.setState({ wizard: null }),
         stop: e => e.stopPropagation(),
@@ -1849,6 +1916,7 @@ class Component extends DCLogic {
       isApprovals: s.adminScreen === 'approvals', isView: s.adminScreen === 'view',
       isClients: s.adminScreen === 'clients', clientRows, bindingRows,
       openClientWizard: () => this.openWizard('client'),
+      isTypes: s.adminScreen === 'types', typeRows, openTypeWizard: () => this.openWizard('tasktype'),
       serviceTabs, tabAllow: s.servicesTab === 'allow', tabIrr: s.servicesTab === 'irr', tabRules: s.servicesTab === 'rules',
       allowRows, irrRows, ruleRows, secretRows,
       openEndpointWizard: () => this.openWizard('endpoint'), openSecretWizard: () => this.openWizard('secret'),

@@ -88,6 +88,12 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
   if (path === "/api/lina/inbox" && m === "GET") return json(res, 200, await store.getInbox(pool));
   if (path === "/api/lina/inbox" && m === "POST") return json(res, 200, await store.inboxMessage(pool, str(body["text"])));
 
+  // ---- Инструкции Лины: типы задач ----
+  if (path === "/api/tasktypes" && m === "GET") return json(res, 200, await store.listTaskTypes(pool));
+  if (path === "/api/tasktypes" && m === "POST") { await store.addTaskType(pool, { name: str(body["name"]), keywords: str(body["keywords"]), executor: str(body["executor"]), clarify: str(body["clarify"]), dod_template: str(body["dod_template"]) }); return json(res, 201, { ok: true }); }
+  if (seg[0] === "api" && seg[1] === "tasktypes" && seg[2] && m === "POST") { await store.updateTaskType(pool, Number(seg[2]), { name: str(body["name"]), keywords: str(body["keywords"]), executor: str(body["executor"]), clarify: str(body["clarify"]), dod_template: str(body["dod_template"]) }); return json(res, 200, { ok: true }); }
+  if (seg[0] === "api" && seg[1] === "tasktypes" && seg[2] && m === "DELETE") { await store.delTaskType(pool, Number(seg[2])); return json(res, 200, { ok: true }); }
+
   // ---- Админ ----
   if (path === "/api/admin/owners" && m === "GET") return json(res, 200, await admin.owners(pool));
   if (path === "/api/admin/services" && m === "GET") return json(res, 200, await admin.services(pool));

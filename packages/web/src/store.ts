@@ -87,7 +87,7 @@ export async function createTask(pool: pg.Pool, title: string, owner: string): P
   const t = (await getTask(pool, id))!;
   const owners = await knownOwners(pool);
   const miss = await refreshFlags(pool, id, t, owners);
-  if (miss) await insertMsg(pool, dialogId, "question", { ...questionFor(miss), answered: false, open: true });
+  if (miss) await insertMsg(pool, dialogId, "question", { ...(miss === "dod" ? await dodQuestion(pool, title) : questionFor(miss)), answered: false, open: true });
   else await insertMsg(pool, dialogId, "reply", { text: "обращение полное — можно передать исполнителю кнопкой ниже." });
   return t;
 }
@@ -129,7 +129,7 @@ export async function postMessage(pool: pg.Pool, taskId: string, text: string): 
   await insertMsg(pool, dialogId, "you", { text });
 
   if (t.handed) {
-    await insertMsg(pool, dialogId, "note", { text: "задача передана исполнителю · поля зафиксированы" });
+    await insertMsg(pool, dialogId, "note", { text: "Задача уже передана исполнителю и выполняется — поля зафиксированы, правки в неё не вносятся. Чтобы изменить условия, создайте новую задачу." });
     return getTaskFull(pool, taskId);
   }
 
@@ -165,7 +165,7 @@ export async function postMessage(pool: pg.Pool, taskId: string, text: string): 
 
   const miss = await refreshFlags(pool, taskId, next, owners);
   if (miss) {
-    await insertMsg(pool, dialogId, "question", { ...questionFor(miss), answered: false, open: true });
+    await insertMsg(pool, dialogId, "question", { ...(miss === "dod" ? await dodQuestion(pool, next.title) : questionFor(miss)), answered: false, open: true });
   } else {
     await insertMsg(pool, dialogId, "reply", { text: "обращение полное — можно передать исполнителю кнопкой ниже." });
   }
@@ -210,6 +210,10 @@ export async function handover(pool: pg.Pool, taskId: string): Promise<{ ok: boo
     [taskId, reqId]);
   const dialogId = await ensureDialog(pool, taskId);
   await pool.query("UPDATE web_dialogs SET status='working' WHERE task_id=$1", [taskId]);
+  // Задача передана — открытых уточняющих вопросов в её диалоге быть не должно.
+  await pool.query(
+    `UPDATE web_messages SET payload = payload || '{"answered":true,"open":false}'::jsonb
+      WHERE dialog_id=$1 AND kind='question' AND (payload->>'answered')::bool IS NOT TRUE`, [dialogId]);
   await insertMsg(pool, dialogId, "note", { text: `обращение полное · задача передана арбитру · ${reqId} · исполнение запущено` });
   return { ok: true, full: await getTaskFull(pool, taskId) };
 }
@@ -311,6 +315,61 @@ export async function inboxMessage(pool: pg.Pool, text: string): Promise<{ messa
   }
   const id = await createFromInbox(pool, title, owner);
   return { ...(await getInbox(pool)), createdTaskId: id };
+}
+
+// ---- Инструкции Лины: типы задач --------------------------------------------
+//
+// Справочник, редактируемый в админке: по ключевым словам обращения Лина
+// подбирает тип и подсказывает, что уточнить и какой формой критериев измерять
+// результат. На саму передачу исполнителю это не влияет — только на квалификацию.
+
+export interface TaskType {
+  id: string; name: string; keywords: string; executor: string; clarify: string; dod_template: string;
+}
+
+export async function listTaskTypes(pool: pg.Pool): Promise<{ types: TaskType[] }> {
+  const r = await pool.query<TaskType>(
+    "SELECT id, name, keywords, executor, clarify, dod_template FROM web_task_types ORDER BY id");
+  return { types: r.rows };
+}
+
+export async function addTaskType(pool: pg.Pool, t: Omit<TaskType, "id">): Promise<void> {
+  await pool.query(
+    "INSERT INTO web_task_types (name, keywords, executor, clarify, dod_template) VALUES ($1,$2,$3,$4,$5)",
+    [t.name, t.keywords, t.executor, t.clarify, t.dod_template]);
+}
+export async function updateTaskType(pool: pg.Pool, id: number, t: Omit<TaskType, "id">): Promise<void> {
+  await pool.query(
+    "UPDATE web_task_types SET name=$2, keywords=$3, executor=$4, clarify=$5, dod_template=$6 WHERE id=$1",
+    [id, t.name, t.keywords, t.executor, t.clarify, t.dod_template]);
+}
+export async function delTaskType(pool: pg.Pool, id: number): Promise<void> {
+  await pool.query("DELETE FROM web_task_types WHERE id=$1", [id]);
+}
+
+/** Подбор типа по ключевым словам обращения. Первое совпадение — детерминированно. */
+async function matchTaskType(pool: pg.Pool, objective: string): Promise<TaskType | null> {
+  try {
+    const { types } = await listTaskTypes(pool);
+    const low = (objective || "").toLowerCase();
+    for (const t of types) {
+      const kws = t.keywords.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+      if (kws.some((k) => low.includes(k))) return t;
+    }
+  } catch { /* нет справочника — вернём общий вопрос */ }
+  return null;
+}
+
+/** Вопрос про критерии приёмки, обогащённый инструкцией подобранного типа. */
+async function dodQuestion(pool: pg.Pool, objective: string): Promise<{ field: string; text: string; placeholder: string }> {
+  const base = questionFor("dod");
+  const t = await matchTaskType(pool, objective);
+  if (!t) return base;
+  const parts = ["По каким проверяемым критериям считать работу выполненной?", `Похоже на тип «${t.name}».`];
+  if (t.clarify) parts.push(`Уточните: ${t.clarify}.`);
+  if (t.dod_template) parts.push(`Форма критериев: ${t.dod_template}`);
+  parts.push("Подставьте значения вместо ЗАГЛАВНЫХ и отправьте — это машинно-проверяемая форма.");
+  return { field: "dod", placeholder: t.dod_template || base.placeholder, text: parts.join("\n") };
 }
 
 export async function moveTask(pool: pg.Pool, taskId: string, dir: number): Promise<unknown | null> {
