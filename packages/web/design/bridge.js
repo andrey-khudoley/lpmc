@@ -68,8 +68,10 @@
       const [sv, se, ap, ow] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners")]);
       const stateLabel = (s) => s === "approved" ? "подтверждено" : s === "denied" ? "отказано" : s === "pending" ? "ожидает" : s;
       this.setState({
-        realOwners: (ow.owners || []).map((o) => o.slug),
-        ownerRows: (ow.owners || []).map((o) => ({ slug: o.slug, category: o.category })),
+        // Для выбора владельца в мастерах — только действующие: архивный лишён
+        // правил и привязок, обращение к нему получило бы отказ на валидации.
+        realOwners: (ow.owners || []).filter((o) => !o.archived).map((o) => o.slug),
+        ownerRows: (ow.owners || []).map((o) => ({ slug: o.slug, category: o.category, archived: !!o.archived, archived_on: o.archived_on })),
         bindingRows: (ow.bindings || []).map((b) => ({ sender: b.sender, route: b.route, owner: b.owner_slug })),
         allow: (sv.allow || []).map((a) => ({ owner: a.owner, host: a.host, methods: a.methods, paths: a.paths, op: a.op, version: a.version })),
         irr: (sv.irr || []).map((a) => ({ host: a.host, op: a.op, cls: a.cls, version: a.version })),
@@ -149,12 +151,54 @@
     this.setState({ rejectingId: null, rejectReason: "" });
     await this.loadAll(this.state.selectedTask);
   };
+  // Сумма удалённых строк по таблицам — чтобы в подтверждении был виден объём,
+  // а не только слово «удалено».
+  function rowsTotal(counts) {
+    return Object.keys(counts || {}).reduce(function (a, k) { return a + (Number(counts[k]) || 0); }, 0);
+  }
+
+  P.archiveOwner = async function (slug) {
+    if (typeof window !== "undefined" && !window.confirm(
+      "Отправить клиента «" + slug + "» в архив?\n\n"
+      + "Клиент и его задачи будут скрыты. Правила, привязки, имена секретов "
+      + "(со значениями) и снимки сессий будут УДАЛЕНЫ — при возврате из архива "
+      + "их придётся завести заново. Журнал вердиктов сохранится.")) return;
+    try {
+      const r = await jx("admin/owner-archive", "POST", { slug });
+      if (r && r.ok === false) { this.toast("не удалось", r.reason || "архивирование отклонено"); return; }
+      this.toast("владельцы", "клиент " + slug + " в архиве, отозвано строк: " + rowsTotal(r && r.revoked));
+    } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+
+  P.unarchiveOwner = async function (slug) {
+    try {
+      const r = await jx("admin/owner-unarchive", "POST", { slug });
+      if (r && r.ok === false) { this.toast("не удалось", r.reason || "возврат отклонён"); return; }
+      this.toast("владельцы", "клиент " + slug + " возвращён из архива; правила и секреты заведите заново");
+    } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+
+  // Необратимая операция администрирования: стирает и аудит (вердикты, лизинги,
+  // подтверждения). Подтверждение — вводом слага, а не одним «ОК»: цена ошибки
+  // здесь выше, чем у любой другой кнопки интерфейса.
   P.deleteOwner = async function (slug) {
-    if (typeof window !== "undefined" && !window.confirm("Удалить клиента «" + slug + "» из pact.owners?")) return;
+    if (typeof window !== "undefined") {
+      const typed = window.prompt(
+        "УДАЛЕНИЕ КЛИЕНТА «" + slug + "» — НЕОБРАТИМО.\n\n"
+        + "Будут стёрты: задачи, вердикты, лизинги, подтверждения, решения о выдаче "
+        + "секретов, правила, привязки, allowlist и снимки сессий этого клиента. "
+        + "Ответить на вопрос «на каком основании было выдано право» после этого будет нечем.\n\n"
+        + "Нужен архив вместо удаления? Отмените и нажмите «в архив».\n\n"
+        + "Для подтверждения введите слаг клиента:");
+      if (typed === null) return;
+      if (typed.trim() !== slug) { this.toast("отменено", "слаг не совпал — ничего не удалено"); return; }
+    }
     try {
       const r = await jx("admin/owner/" + encodeURIComponent(slug), "DELETE");
       if (r && r.ok === false) { this.toast("нельзя удалить", r.reason || "владелец используется"); return; }
-      this.toast("владельцы", "клиент " + slug + " удалён");
+      this.toast("владельцы", "клиент " + slug + " удалён, строк стёрто: " + rowsTotal(r && r.deleted));
     } catch (e) { this.toast("ошибка", e.message); }
     await this.loadAdmin();
   };

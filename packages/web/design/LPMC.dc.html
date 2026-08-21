@@ -788,19 +788,22 @@
             </div>
 
             <div style="border:1px solid var(--line-2);background:var(--surface);overflow:hidden;">
-              <div style="display:grid;grid-template-columns:1fr 160px 90px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+              <div style="display:grid;grid-template-columns:1fr 160px 200px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
                 <span data-role="cell">слаг</span><span data-role="cell">категория</span><span data-role="cell"></span>
               </div>
               <sc-for list="{{ clientRows }}" as="c" hint-placeholder-count="3">
                 <div style="{{ c.rowStyle }}" style-hover="background:var(--surface-2)">
-                  <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);display:flex;align-items:center;gap:9px;"><span style="color:var(--accent);">▮</span>{{ c.slug }}</span>
+                  <span data-role="cell" style="{{ c.slugStyle }}"><span style="{{ c.markStyle }}">▮</span>{{ c.slug }}{{ c.archivedNote }}</span>
                   <span data-role="cell"><span style="{{ c.catStyle }}">{{ c.category }}</span></span>
-                  <span data-role="cell" style="display:flex;justify-content:flex-end;"><span onClick="{{ c.onDelete }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">удалить</span></span>
+                  <span data-role="cell" style="display:flex;justify-content:flex-end;gap:14px;">
+                    <span onClick="{{ c.onArchive }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--accent)">{{ c.archiveLabel }}</span>
+                    <span onClick="{{ c.onDelete }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">удалить</span>
+                  </span>
                 </div>
               </sc-for>
             </div>
 
-            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);line-height:1.7;">Владелец — единица изоляции: задачи, allowlist, правила и секреты привязаны к слагу. Удаление отклоняется, если на владельца ещё ссылаются привязки или правила.</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);line-height:1.7;">Владелец — единица изоляции: задачи, allowlist, правила и секреты привязаны к слагу. «В архив» скрывает клиента и его задачи и отзывает действующее: правила, привязки, имена секретов и снимки сессий. Журнал вердиктов при этом сохраняется. «Удалить» стирает клиента вместе с задачами и аудитом — необратимо.</span>
 
             <div style="display:flex;flex-direction:column;gap:9px;">
               <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">привязки отправителей → владелец</span>
@@ -1661,8 +1664,14 @@ class Component extends DCLogic {
 
     // ── клиенты (владельцы) и привязки
     const clientRows = (s.ownerRows || []).map(o => ({ slug: o.slug, category: o.category,
-      rowStyle: row + 'grid-template-columns:1fr 160px 90px;',
+      rowStyle: row + 'grid-template-columns:1fr 160px 200px;',
+      slugStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12px;display:flex;align-items:center;gap:9px;color:'
+        + (o.archived ? 'var(--fg3)' : 'var(--fg)') + ';',
+      markStyle: 'color:' + (o.archived ? 'var(--fg3)' : 'var(--accent)') + ';',
+      archivedNote: o.archived ? ' · в архиве' + (o.archived_on ? ' с ' + o.archived_on : '') : '',
+      archiveLabel: o.archived ? 'вернуть' : 'в архив',
       catStyle: this.chip(o.category === 'internal' ? 'var(--accent)' : 'var(--fg3)'),
+      onArchive: () => (o.archived ? this.unarchiveOwner(o.slug) : this.archiveOwner(o.slug)),
       onDelete: () => this.deleteOwner(o.slug) }));
     const bindingRows = (s.bindingRows || []).map(b => ({ sender: b.sender, route: b.route || '*', owner: b.owner,
       rowStyle: row + 'grid-template-columns:1.4fr 90px 1fr;' }));

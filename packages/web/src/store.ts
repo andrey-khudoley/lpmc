@@ -14,7 +14,10 @@ const TASK_COLS = `id, title, owner, status, prio,
 
 export async function knownOwners(pool: pg.Pool): Promise<string[]> {
   try {
-    const r = await pool.query<{ slug: string }>("SELECT slug FROM pact.owners ORDER BY slug");
+    // Архивный владелец не предлагается для новых задач: правил и привязок у него
+    // уже нет, обращение к нему всё равно получило бы отказ на валидации (D-020).
+    const r = await pool.query<{ slug: string }>(
+      "SELECT slug FROM pact.owners WHERE archived_at IS NULL ORDER BY slug");
     return r.rows.map((x) => x.slug);
   } catch { return ["internal", "notion-demo"]; }
 }
@@ -27,6 +30,7 @@ export async function listTasks(pool: pg.Pool): Promise<unknown[]> {
            t.handed, d.id AS dialog_id, d.status AS dialog_status,
            (SELECT count(*) FROM web_comments c WHERE c.task_id = t.id) AS comments
       FROM web_tasks t LEFT JOIN web_dialogs d ON d.task_id = t.id
+     WHERE t.archived_at IS NULL
      ORDER BY t.created_at`);
   return r.rows;
 }

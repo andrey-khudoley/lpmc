@@ -9,7 +9,10 @@ import type pg from "pg";
  */
 
 export async function owners(pool: pg.Pool): Promise<unknown> {
-  const o = await pool.query("SELECT slug, category FROM pact.owners ORDER BY slug");
+  const o = await pool.query(
+    `SELECT slug, category, (archived_at IS NOT NULL) AS archived,
+            to_char(archived_at,'DD.MM.YYYY') AS archived_on
+       FROM pact.owners ORDER BY (archived_at IS NOT NULL), slug`);
   const b = await pool.query(
     "SELECT sender, coalesce(reply_route_id,'*') AS route, owner_slug FROM pact.owner_bindings ORDER BY sender");
   return { owners: o.rows, bindings: b.rows };
@@ -83,16 +86,91 @@ export async function addIrr(pool: pg.Pool, i: { host: string; op: string; cls: 
     [v, i.host, i.op, i.cls]);
 }
 
-// ---- Владельцы и привязки (add/delete) -------------------------------------
+// ---- Владельцы и привязки ---------------------------------------------------
+//
+// Три операции жизненного цикла (архив, возврат, удаление) идут через функции
+// SECURITY DEFINER схемы pact: веб-роли намеренно не выдан DELETE на журналах
+// (verdicts, leases, approvals) — она получает только право вызова. Тела функций
+// и обоснование — pact/migrations/015_owner_lifecycle.sql.
+
+type OwnerOpResult = { ok: boolean; reason?: string; revoked?: unknown; deleted?: unknown; tasks_restored?: number };
+
+/** Заведение владельца. Повторное заведение архивного слага возвращает его из архива. */
 export async function addOwner(pool: pg.Pool, slug: string, category: string): Promise<void> {
   const cat = ["client", "project", "internal"].includes(category) ? category : "client";
-  await pool.query(
-    `INSERT INTO pact.owners (slug, category) VALUES ($1, $2)
-     ON CONFLICT (slug) DO UPDATE SET category = EXCLUDED.category`, [slug, cat]);
+  await inTx(pool, async (c) => {
+    await c.query(
+      `INSERT INTO pact.owners (slug, category) VALUES ($1, $2)
+       ON CONFLICT (slug) DO UPDATE SET category = EXCLUDED.category`, [slug, cat]);
+    await c.query("SELECT pact.web_unarchive_owner($1)", [slug]);
+    await c.query("UPDATE web_tasks SET archived_at = NULL WHERE owner = $1 AND archived_at IS NOT NULL", [slug]);
+  });
 }
-export async function delOwner(pool: pg.Pool, slug: string): Promise<{ ok: boolean; reason?: string }> {
-  try { await pool.query("DELETE FROM pact.owners WHERE slug = $1", [slug]); return { ok: true }; }
-  catch (e) { return { ok: false, reason: "владелец используется правилами/привязками: " + (e instanceof Error ? e.message : String(e)) }; }
+
+/**
+ * Обе схемы правятся ОДНОЙ транзакцией на ОДНОМ соединении: задача веб-интерфейса
+ * и задача арбитра описывают одно и то же, и промежуточное состояние, где скрыта
+ * только одна сторона, недопустимо. Вызванная внутри BEGIN функция SECURITY
+ * DEFINER участвует в этой же транзакции, а не открывает свою.
+ */
+async function inTx<T>(pool: pg.Pool, fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
+  const c = await pool.connect();
+  try {
+    await c.query("BEGIN");
+    const r = await fn(c);
+    await c.query("COMMIT");
+    return r;
+  } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
+}
+
+/** Архив: скрыть владельца и его задачи, отозвать правила, привязки, секреты и сессии. */
+export async function archiveOwner(pool: pg.Pool, slug: string): Promise<OwnerOpResult> {
+  try {
+    return await inTx(pool, async (c) => {
+      const pact = await c.query<{ r: OwnerOpResult }>("SELECT pact.web_archive_owner($1) AS r", [slug]);
+      const r = pact.rows[0]!.r;
+      if (!r.ok) return r;
+      const web = await c.query(
+        "UPDATE web_tasks SET archived_at = now() WHERE owner = $1 AND archived_at IS NULL", [slug]);
+      return { ...r, revoked: { ...(r.revoked as object), web_tasks_hidden: web.rowCount ?? 0 } };
+    });
+  } catch (e) {
+    return { ok: false, reason: "архивирование не выполнено: " + (e instanceof Error ? e.message : String(e)) };
+  }
+}
+
+/** Возврат из архива. Отозванное не восстанавливается — правила и секреты заводятся заново. */
+export async function unarchiveOwner(pool: pg.Pool, slug: string): Promise<OwnerOpResult> {
+  try {
+    return await inTx(pool, async (c) => {
+      const pact = await c.query<{ r: OwnerOpResult }>("SELECT pact.web_unarchive_owner($1) AS r", [slug]);
+      const r = pact.rows[0]!.r;
+      if (!r.ok) return r;
+      await c.query("UPDATE web_tasks SET archived_at = NULL WHERE owner = $1 AND archived_at IS NOT NULL", [slug]);
+      return r;
+    });
+  } catch (e) {
+    return { ok: false, reason: "возврат из архива не выполнен: " + (e instanceof Error ? e.message : String(e)) };
+  }
+}
+
+/**
+ * Полное удаление владельца — вместе с задачами и аудитом (вердикты, лизинги,
+ * подтверждения, решения о выдаче). Операция раздела администрирования,
+ * необратимая: восстановить основание выданных прав после неё будет нечем.
+ */
+export async function purgeOwner(pool: pg.Pool, slug: string): Promise<OwnerOpResult> {
+  try {
+    return await inTx(pool, async (c) => {
+      const pact = await c.query<{ r: OwnerOpResult }>("SELECT pact.web_purge_owner($1) AS r", [slug]);
+      const r = pact.rows[0]!.r;
+      if (!r.ok) return r;
+      const web = await c.query("DELETE FROM web_tasks WHERE owner = $1", [slug]);
+      return { ...r, deleted: { ...(r.deleted as object), web_tasks: web.rowCount ?? 0 } };
+    });
+  } catch (e) {
+    return { ok: false, reason: "удаление не выполнено: " + (e instanceof Error ? e.message : String(e)) };
+  }
 }
 export async function addBinding(pool: pg.Pool, sender: string, owner: string, route: string): Promise<void> {
   await pool.query(

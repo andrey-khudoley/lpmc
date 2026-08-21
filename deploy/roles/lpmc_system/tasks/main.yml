@@ -2268,6 +2268,22 @@
        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA pact TO \"{{ lpmc_system_web_user }}\";"
   changed_when: false
 
+# Жизненный цикл владельца (архив, возврат, удаление). Прямых прав на журналы
+# веб не получает: DELETE на verdicts, leases, approvals и tasks остаётся только
+# у lpmc-pact, а веб вызывает три функции SECURITY DEFINER (миграция
+# pact/015_owner_lifecycle). Иначе право стереть аудит лежало бы на роли,
+# смотрящей в интернет.
+- name: Выдать веб-интерфейсу право вызвать операции жизненного цикла владельца (функции pact)
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: >-
+      psql -d {{ lpmc_system_db_name }} -v ON_ERROR_STOP=1 -c
+      "GRANT EXECUTE ON FUNCTION pact.web_archive_owner(text),
+         pact.web_unarchive_owner(text), pact.web_purge_owner(text)
+         TO \"{{ lpmc_system_web_user }}\";"
+  changed_when: false
+
 # Мост в реальный конвейер: веб не имеет доступа к схеме lina, но может вызвать
 # три функции SECURITY DEFINER (подать кандидат, прочитать результат, принять).
 # Функции заведены миграцией lina (005_web_bridge) и исполняются с правами lpmc-lina.

@@ -95,9 +95,12 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
   if (path === "/api/admin/irr" && m === "POST") { await admin.addIrr(pool, { host: str(body["host"]), op: str(body["op"]) || "write", cls: str(body["cls"]) || "irreversible" }); return json(res, 201, { ok: true }); }
   if (path === "/api/admin/owner" && m === "POST") { await admin.addOwner(pool, str(body["slug"]), str(body["category"]) || "client"); return json(res, 201, { ok: true }); }
   if (path === "/api/admin/binding" && m === "POST") { await admin.addBinding(pool, str(body["sender"]), str(body["owner"]), str(body["route"])); return json(res, 201, { ok: true }); }
+  if (path === "/api/admin/owner-archive" && m === "POST") return json(res, 200, await admin.archiveOwner(pool, str(body["slug"])));
+  if (path === "/api/admin/owner-unarchive" && m === "POST") return json(res, 200, await admin.unarchiveOwner(pool, str(body["slug"])));
   if (seg[0] === "api" && seg[1] === "admin" && seg[3] && m === "DELETE") {
     const kind = seg[2]; const key = decodeURIComponent(seg[3]);
-    if (kind === "owner") return json(res, 200, await admin.delOwner(pool, key));
+    // Удаление владельца стирает и его аудит — см. admin.purgeOwner и D-042.
+    if (kind === "owner") return json(res, 200, await admin.purgeOwner(pool, key));
     if (kind === "secret") { await admin.delSecret(pool, key); return json(res, 200, { ok: true }); }
     if (kind === "allow") { await admin.delAllow(pool, Number(key)); return json(res, 200, { ok: true }); }
     if (kind === "rule") { await admin.delRule(pool, Number(key)); return json(res, 200, { ok: true }); }
