@@ -90,7 +90,6 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
   if (path === "/api/admin/secrets" && m === "GET") return json(res, 200, await admin.secrets(pool));
   if (path === "/api/admin/sessions" && m === "GET") return json(res, 200, await admin.sessions(pool));
   if (path === "/api/admin/approvals" && m === "GET") return json(res, 200, await admin.approvals(pool));
-  if (path === "/api/admin/instances" && m === "GET") return json(res, 200, await admin.instances(pool));
   if (path === "/api/admin/allow" && m === "POST") { await admin.addAllow(pool, { owner: str(body["owner"]) || "*", host: str(body["host"]), methods: arr(body["methods"]), paths: arr(body["paths"]), op: str(body["op"]) || "auto" }); return json(res, 201, { ok: true }); }
   if (path === "/api/admin/rule" && m === "POST") { await admin.addRule(pool, { sender: str(body["sender"]), owner: str(body["owner"]), caps: arr(body["caps"]), exec: str(body["exec"]) || "mita", lease: Number(body["lease"] ?? 1800), appr: Boolean(body["appr"]) }); return json(res, 201, { ok: true }); }
   if (path === "/api/admin/irr" && m === "POST") { await admin.addIrr(pool, { host: str(body["host"]), op: str(body["op"]) || "write", cls: str(body["cls"]) || "irreversible" }); return json(res, 201, { ok: true }); }

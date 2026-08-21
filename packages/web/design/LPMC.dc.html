@@ -134,9 +134,8 @@
       <span style="display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;">
         <span style="width:6px;height:6px;background:var(--accent);"></span>привилегированный контур
       </span>
-      <span style="color:var(--fg2);">оператор <b style="color:var(--fg);font-weight:600;">operator@kz-central</b> · права: политика PACT + custody · пишет таблицы владельцев, правил, allowlist, секретов</span>
+      <span style="color:var(--fg2);">права: политика PACT + custody · запись таблиц владельцев, правил, allowlist и реестра секретов</span>
       <span style="flex:1;"></span>
-      <span style="color:var(--fg2);">сессия оператора истекает через {{ opSessionLeft }}</span>
       <span onClick="{{ goTasks }}" style="cursor:pointer;border:1px solid var(--accent-line);padding:3px 9px;color:var(--accent);">выйти к задачам</span>
     </div>
   </sc-if>
@@ -680,7 +679,6 @@
                   <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Секреты</span>
                 </div>
                 <span style="flex:1;"></span>
-                <span onClick="{{ openSecretWizard }}" style="cursor:pointer;border:1px solid var(--danger);background:var(--danger-soft);color:var(--danger);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="background:var(--danger);color:#2B0E12">+ Внести / обновить секрет</span>
               </div>
 
               <div style="border:1px solid var(--line-2);background:var(--surface);overflow:hidden;">
@@ -720,7 +718,7 @@
                       <span style="font-size:13px;font-weight:600;color:var(--fg);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.title }}</span>
                       <span style="{{ a.ttlStyle }}">{{ a.ttl }}</span>
                     </div>
-                    <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ a.host }} · {{ a.op }} · {{ a.owner }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ a.host }} · {{ a.op }}</div>
                     <sc-if value="{{ a.decided }}" hint-placeholder-val="{{ false }}">
                       <span style="{{ a.decidedStyle }}">{{ a.decidedLabel }}</span>
                     </sc-if>
@@ -734,10 +732,9 @@
               <div style="border:1px solid var(--accent-line);background:var(--surface);min-height:300px;">
                 <sc-if value="{{ approval.exists }}" hint-placeholder-val="{{ true }}">
                   <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line-2);background:var(--accent-soft);">
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;">одноразовая ссылка</span>
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);">{{ approval.token }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;">запись PACT · только просмотр</span>
                     <span style="flex:1;"></span>
-                    <span style="{{ approval.ttlStyle }}">действительна {{ approval.ttl }}</span>
+                    <span style="{{ approval.ttlStyle }}">{{ approval.ttl }}</span>
                   </div>
                   <div style="padding:20px 18px;display:flex;flex-direction:column;gap:16px;">
                     <span style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;line-height:1.3;">{{ approval.title }}</span>
@@ -747,9 +744,9 @@
                         <span style="{{ f.vStyle }}">{{ f.v }}</span>
                       </sc-for>
                     </div>
-                    <div style="border:1px solid var(--danger);background:var(--danger-soft);padding:12px 14px;display:flex;gap:11px;align-items:baseline;">
-                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--danger);flex:none;">необратимо</span>
-                      <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);">После подтверждения действие отменить нельзя. Решение по ссылке принимается один раз: повторное открытие даст отказ, истёкшая ссылка не продлевается.</span>
+                    <div style="border:1px solid var(--line-2);background:var(--surface-2);padding:12px 14px;display:flex;gap:11px;align-items:baseline;">
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);flex:none;">только просмотр</span>
+                      <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);">Это запись из журнала подтверждений PACT. Решения по необратимым действиям принимаются по доверенному одноразовому пути (approvald), не из этого интерфейса.</span>
                     </div>
                     <sc-if value="{{ approval.pending }}" hint-placeholder-val="{{ true }}">
                       <div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;">
@@ -769,8 +766,8 @@
                 </sc-if>
                 <sc-if value="{{ approval.none }}" hint-placeholder-val="{{ false }}">
                   <div style="padding:60px 24px;text-align:center;display:flex;flex-direction:column;gap:11px;align-items:center;">
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);">решение не выбрано</span>
-                    <span style="font-size:13px;color:var(--fg2);max-width:360px;line-height:1.6;">Выберите подтверждение из очереди. Страница по одноразовой ссылке показывает ровно одно решение и не даёт обзора очереди.</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);">запись не выбрана</span>
+                    <span style="font-size:13px;color:var(--fg2);max-width:360px;line-height:1.6;">Выберите запись из очереди подтверждений PACT — справа откроется её содержимое. Только просмотр.</span>
                   </div>
                 </sc-if>
               </div>
@@ -1539,8 +1536,7 @@ class Component extends DCLogic {
     const adminNav = [
       ['services', '3.1', 'Сервисы и правила', ''],
       ['secrets', '3.2', 'Секреты', ''],
-      ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : ''],
-      ['view', '3.4', 'Просмотр экрана', '']
+      ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : '']
     ].map(([k, num, label, badge]) => ({ num, label, badge,
       onOpen: () => this.setState({ adminScreen: k }),
       style: 'cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 11px;font-size:13px;'
@@ -1563,10 +1559,10 @@ class Component extends DCLogic {
       onDelete: () => this.setState({ confirm: { kind: 'secret', name: x.name } }) }));
 
     const approvalRows = s.approvals.map(a => {
-      const left = a.expires - s.now, decided = a.state !== 'pending';
+      const decided = a.state !== 'pending';
       return { title: a.title, host: a.host, op: a.op, owner: a.owner, decided,
-        ttl: decided ? '—' : this.fmt(left),
-        ttlStyle: this.chip(decided ? 'var(--fg3)' : left < 5 * 60000 ? 'var(--danger)' : 'var(--fg3)'),
+        ttl: a.created || '',
+        ttlStyle: this.chip('var(--fg3)'),
         decidedLabel: a.state === 'approved' ? 'подтверждено' : 'отказано',
         decidedStyle: this.chip(a.state === 'approved' ? 'var(--ok)' : 'var(--danger)') + ';align-self:flex-start;',
         style: 'cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid var(--line);'
@@ -1574,27 +1570,18 @@ class Component extends DCLogic {
         onOpen: () => this.setState({ selectedApproval: a.id }) };
     });
     const sel = s.approvals.find(a => a.id === s.selectedApproval);
-    const selLeft = sel ? sel.expires - s.now : 0;
+    // Read-only аудит очереди PACT: без токена/таймера/кнопок — решения идут не отсюда.
     const approval = sel ? {
-      exists: true, none: false, title: sel.title, token: 'token ' + sel.id + 'ZQ…w7Rk',
-      ttl: this.fmt(selLeft), ttlStyle: this.chip(selLeft < 5 * 60000 ? 'var(--danger)' : 'var(--fg3)'),
+      exists: true, none: false, title: sel.title, token: '',
+      ttl: sel.created || '', ttlStyle: this.chip('var(--fg3)'),
       facts: [
-        { k: 'владелец', v: sel.owner, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--fg);' },
         { k: 'внешняя система', v: sel.host, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--fg);' },
         { k: 'тип операции', v: sel.op, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--danger);' },
-        { k: 'что будет сделано', v: sel.desc, vStyle: 'font-size:13px;line-height:1.6;color:var(--fg2);' },
-        { k: 'полномочия запуска', v: sel.caps, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--fg2);' },
-        { k: 'задача · запуск', v: sel.task + ' · ' + sel.run, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--fg3);' }
+        { k: 'состояние', v: sel.stateLabel || sel.state, vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:var(--fg);' },
+        { k: 'создано', v: sel.created || '—', vStyle: 'font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--fg3);' }
       ],
-      pending: sel.state === 'pending' && selLeft > 0, done: sel.state !== 'pending' || selLeft <= 0,
-      doneLabel: sel.state === 'approved' ? 'подтверждено' : sel.state === 'denied' ? 'отказано' : 'срок истёк',
-      doneText: sel.state === 'approved' ? 'Система продолжит работу новым запуском. Прежний лизинг для этого не годится.'
-        : sel.state === 'denied' ? 'Действие не будет выполнено. Задача закрыта отказом.'
-        : 'Срок подтверждения истёк, решение по ссылке больше не принимается. Продление не предусмотрено.',
-      doneStyle: 'display:flex;flex-direction:column;gap:7px;padding:14px 16px;border:1px solid '
-        + (sel.state === 'approved' ? 'var(--ok);background:var(--ok-soft);color:var(--ok);'
-          : 'var(--danger);background:var(--danger-soft);color:var(--danger);'),
-      onApprove: () => this.decideApproval(sel.id, true), onDeny: () => this.decideApproval(sel.id, false)
+      pending: false, done: false,
+      onApprove: () => {}, onDeny: () => {}
     } : { exists: false, none: true, facts: [] };
 
     const vs = s.view, vLeft = vs ? vs.expires - s.now : 0;

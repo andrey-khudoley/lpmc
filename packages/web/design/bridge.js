@@ -65,7 +65,8 @@
 
   P.loadAdmin = async function () {
     try {
-      const [sv, se, ap, inst, ow] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/instances"), jx("admin/owners")]);
+      const [sv, se, ap, ow] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/owners")]);
+      const stateLabel = (s) => s === "approved" ? "подтверждено" : s === "denied" ? "отказано" : s === "pending" ? "ожидает" : s;
       this.setState({
         realOwners: (ow.owners || []).map((o) => o.slug),
         ownerRows: (ow.owners || []).map((o) => ({ slug: o.slug, category: o.category })),
@@ -74,8 +75,8 @@
         irr: (sv.irr || []).map((a) => ({ host: a.host, op: a.op, cls: a.cls, version: a.version })),
         rules: (sv.rules || []).map((a) => ({ sender: a.sender, owner: a.owner, caps: a.caps, exec: a.exec, lease: a.lease + " s", appr: a.appr })),
         secrets: (se.secrets || []).map((s) => ({ name: s.name, owner: s.owner, purpose: s.purpose, updated: s.updated })),
-        approvals: (ap.approvals || []).map((a) => ({ id: a.id, host: a.host, op: a.op, state: a.state, title: a.host + " · " + a.op, owner: "", expires: Date.now() + 1800000, caps: "", desc: "", task: "", run: "", dialog: "" })),
-        instances: (inst.instances || []).map((i) => ({ id: i.id, owner: i.owner, host: i.host, state: i.state })),
+        approvals: (ap.approvals || []).map((a) => ({ id: a.id, host: a.host, op: a.op, state: a.state, stateLabel: stateLabel(a.state), created: a.created || "", title: a.op + " · " + a.host, owner: "" })),
+        instances: [],
       });
     } catch (e) { this.toast("ошибка", e.message); }
   };

@@ -51,13 +51,6 @@ export async function approvals(pool: pg.Pool): Promise<unknown> {
   } catch { return { approvals: [] }; }
 }
 
-/** Браузерные инстансы MITA (human-view). Пока — производный от владельцев вид. */
-export async function instances(pool: pg.Pool): Promise<unknown> {
-  const o = await pool.query("SELECT slug FROM pact.owners WHERE category='internal' ORDER BY slug");
-  const rows = o.rows.map((x: { slug: string }) => ({ id: `mita-${x.slug}`, owner: x.slug, host: "—", state: "работает" }));
-  return { instances: rows };
-}
-
 async function maxVersion(pool: pg.Pool, table: string): Promise<number> {
   const r = await pool.query<{ v: number }>(`SELECT COALESCE(MAX(ruleset_version),1) AS v FROM pact.${table}`);
   return r.rows[0]!.v;
