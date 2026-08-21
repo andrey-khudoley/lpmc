@@ -775,6 +775,51 @@
           </div>
         </sc-if>
 
+        <!-- ── Клиенты (владельцы) ── -->
+        <sc-if value="{{ isClients }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.4 Клиенты · владельцы" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:22px;animation:rise .25s ease;">
+            <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:7px;">
+                <span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.4</span><span style="width:22px;height:1px;background:var(--line-2);"></span>pact.owners</span>
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">Клиенты и владельцы</span>
+              </div>
+              <span style="flex:1;"></span>
+              <span onClick="{{ openClientWizard }}" style="cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:10px 15px;font-size:12.5px;font-weight:600;" style-hover="filter:brightness(1.08)">+ Добавить клиента</span>
+            </div>
+
+            <div style="border:1px solid var(--line-2);background:var(--surface);overflow:hidden;">
+              <div style="display:grid;grid-template-columns:1fr 160px 90px;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                <span data-role="cell">слаг</span><span data-role="cell">категория</span><span data-role="cell"></span>
+              </div>
+              <sc-for list="{{ clientRows }}" as="c" hint-placeholder-count="3">
+                <div style="{{ c.rowStyle }}" style-hover="background:var(--surface-2)">
+                  <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);display:flex;align-items:center;gap:9px;"><span style="color:var(--accent);">▮</span>{{ c.slug }}</span>
+                  <span data-role="cell"><span style="{{ c.catStyle }}">{{ c.category }}</span></span>
+                  <span data-role="cell" style="display:flex;justify-content:flex-end;"><span onClick="{{ c.onDelete }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--danger)">удалить</span></span>
+                </div>
+              </sc-for>
+            </div>
+
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);line-height:1.7;">Владелец — единица изоляции: задачи, allowlist, правила и секреты привязаны к слагу. Удаление отклоняется, если на владельца ещё ссылаются привязки или правила.</span>
+
+            <div style="display:flex;flex-direction:column;gap:9px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg3);">привязки отправителей → владелец</span>
+              <div style="border:1px solid var(--line-2);background:var(--surface);overflow:hidden;">
+                <div style="display:grid;grid-template-columns:1.4fr 90px 1fr;border-bottom:1px solid var(--line-2);background:var(--surface-2);font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">
+                  <span data-role="cell">отправитель</span><span data-role="cell">маршрут</span><span data-role="cell">владелец</span>
+                </div>
+                <sc-for list="{{ bindingRows }}" as="b" hint-placeholder-count="2">
+                  <div style="{{ b.rowStyle }}" style-hover="background:var(--surface-2)">
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg2);">{{ b.sender }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg3);">{{ b.route }}</span>
+                    <span data-role="cell" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg);">{{ b.owner }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
         <!-- ── Просмотр экрана ── -->
         <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="02.4 Просмотр экрана" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
@@ -1319,13 +1364,26 @@ class Component extends DCLogic {
   openWizard(kind) {
     const w = kind === 'endpoint'
       ? { kind, step: 1, total: 3, owner: 'acme-school', host: '', methods: [], paths: '', op: 'auto' }
+      : kind === 'client'
+      ? { kind, step: 1, total: 1, slug: '', category: 'client' }
       : { kind, step: 1, total: 2, name: '', owner: 'acme-school', purpose: '', value: '' };
     this.setState({ wizard: w });
   }
   setW(patch) { this.setState(s => ({ wizard: { ...s.wizard, ...patch } })); }
 
+  deleteOwner(slug) {
+    this.setState(s => ({ ownerRows: (s.ownerRows || []).filter(x => x.slug !== slug) }));
+    this.toast('владельцы', 'Клиент ' + slug + ' удалён');
+  }
+
   submitWizard() {
     const w = this.state.wizard;
+    if (w.kind === 'client') {
+      if (!/^[a-z0-9-]{1,64}$/.test(w.slug)) return this.setW({ err: 'слаг: строчная латиница, цифры, дефис — до 64 символов' });
+      this.setState(s => ({ wizard: null, ownerRows: [...(s.ownerRows || []).filter(x => x.slug !== w.slug), { slug: w.slug, category: w.category }] }));
+      this.toast('владельцы', 'Клиент ' + w.slug + ' добавлен');
+      return;
+    }
     if (w.kind === 'endpoint') {
       if (w.step === 1) { if (!/^[a-z0-9.-]+$/.test(w.host)) return this.setW({ err: 'хост: латиница, цифры, точки, дефис' }); return this.setW({ step: 2, err: null }); }
       if (w.step === 2) { if (!w.methods.length) return this.setW({ err: 'выберите хотя бы один метод' }); return this.setW({ step: 3, err: null }); }
@@ -1536,7 +1594,8 @@ class Component extends DCLogic {
     const adminNav = [
       ['services', '3.1', 'Сервисы и правила', ''],
       ['secrets', '3.2', 'Секреты', ''],
-      ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : '']
+      ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : ''],
+      ['clients', '3.4', 'Клиенты', s.ownerRows ? String(s.ownerRows.length) : '']
     ].map(([k, num, label, badge]) => ({ num, label, badge,
       onOpen: () => this.setState({ adminScreen: k }),
       style: 'cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 11px;font-size:13px;'
@@ -1600,6 +1659,14 @@ class Component extends DCLogic {
       onRevoke: () => { this.setState({ view: null }); this.toast('сеанс погашен', 'Соединения разорваны, ссылка недействительна'); }
     } : { active: false };
 
+    // ── клиенты (владельцы) и привязки
+    const clientRows = (s.ownerRows || []).map(o => ({ slug: o.slug, category: o.category,
+      rowStyle: row + 'grid-template-columns:1fr 160px 90px;',
+      catStyle: this.chip(o.category === 'internal' ? 'var(--accent)' : 'var(--fg3)'),
+      onDelete: () => this.deleteOwner(o.slug) }));
+    const bindingRows = (s.bindingRows || []).map(b => ({ sender: b.sender, route: b.route || '*', owner: b.owner,
+      rowStyle: row + 'grid-template-columns:1.4fr 90px 1fr;' }));
+
     // ── мастер
     const w = s.wizard;
     const pick = (on) => 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:7px 11px;border:1px solid '
@@ -1632,6 +1699,14 @@ class Component extends DCLogic {
               value: '[' + w.owner + '] ' + w.host + ' ' + w.methods.join(',') + ' ' + (w.paths || '(любой путь)') + ' (' + w.op + ', v1)',
               onInput: () => {}, hint: true, hintText: 'запись попадёт в egress_allow с текущей версией набора правил' }
           ]; }
+      } else if (w.kind === 'client') {
+        title = 'Новый клиент · слаг и категория';
+        fields = [
+          { label: 'слаг', isInput: true, type: 'text', value: w.slug, placeholder: 'acme-school',
+            onInput: e => this.setW({ slug: e.target.value, err: null }), hint: true,
+            hintText: 'строчная латиница, цифры, дефис — до 64 символов; попадёт в pact.owners', error: !!w.err, errorText: w.err },
+          { label: 'категория', isChoice: true, options: ['client', 'project', 'internal'].map(o => ({ label: o, style: pick(w.category === o), onPick: () => this.setW({ category: o }) })) }
+        ];
       } else {
         if (w.step === 1) { title = 'Внести секрет · имя и владелец';
           fields = [
@@ -1654,7 +1729,7 @@ class Component extends DCLogic {
       wizard = { open: true, step: w.step, total: w.total, title, fields, warn, warnText,
         canBack: w.step > 1, onBack: () => this.setW({ step: w.step - 1, err: null }),
         onNext: () => this.submitWizard(),
-        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : 'Разрешить') : 'Далее →',
+        nextLabel: last ? (w.kind === 'secret' ? 'Внести секрет' : w.kind === 'client' ? 'Добавить клиента' : 'Разрешить') : 'Далее →',
         nextStyle: btn(w.kind === 'secret' && last ? 'var(--danger)' : 'var(--accent-fill)', w.kind === 'secret' && last ? '#2B0E12' : 'var(--accent-fill-fg)'),
         onClose: () => this.setState({ wizard: null }), onBackdrop: () => this.setState({ wizard: null }),
         stop: e => e.stopPropagation(),
@@ -1719,6 +1794,8 @@ class Component extends DCLogic {
 
       adminNav, isServices: s.adminScreen === 'services', isSecrets: s.adminScreen === 'secrets',
       isApprovals: s.adminScreen === 'approvals', isView: s.adminScreen === 'view',
+      isClients: s.adminScreen === 'clients', clientRows, bindingRows,
+      openClientWizard: () => this.openWizard('client'),
       serviceTabs, tabAllow: s.servicesTab === 'allow', tabIrr: s.servicesTab === 'irr', tabRules: s.servicesTab === 'rules',
       allowRows, irrRows, ruleRows, secretRows,
       openEndpointWizard: () => this.openWizard('endpoint'), openSecretWizard: () => this.openWizard('secret'),

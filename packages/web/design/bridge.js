@@ -149,9 +149,25 @@
     this.setState({ rejectingId: null, rejectReason: "" });
     await this.loadAll(this.state.selectedTask);
   };
+  P.deleteOwner = async function (slug) {
+    if (typeof window !== "undefined" && !window.confirm("Удалить клиента «" + slug + "» из pact.owners?")) return;
+    try {
+      const r = await jx("admin/owner/" + encodeURIComponent(slug), "DELETE");
+      if (r && r.ok === false) { this.toast("нельзя удалить", r.reason || "владелец используется"); return; }
+      this.toast("владельцы", "клиент " + slug + " удалён");
+    } catch (e) { this.toast("ошибка", e.message); }
+    await this.loadAdmin();
+  };
+
   P.submitWizard = async function () {
     const w = this.state.wizard; if (!w) return;
     try {
+      if (w.kind === "client") {
+        if (!/^[a-z0-9-]{1,64}$/.test(w.slug || "")) { this.setState((s) => ({ wizard: Object.assign({}, s.wizard, { err: "слаг: строчная латиница, цифры, дефис — до 64 символов" }) })); return; }
+        await jx("admin/owner", "POST", { slug: w.slug, category: w.category || "client" });
+        this.toast("владельцы", "клиент " + w.slug + " добавлен"); this.setState({ wizard: null }); await this.loadAdmin();
+        return;
+      }
       if (w.kind === "endpoint") {
         await jx("admin/allow", "POST", { owner: w.owner || "internal", host: w.host, methods: csv(w.methods), paths: csv(w.paths), op: w.op || "auto" });
         this.toast("готово", "эндпоинт разрешён"); this.setState({ wizard: null }); await this.loadAdmin();
