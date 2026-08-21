@@ -144,7 +144,12 @@ function chat() {
       ${d.status === "working" && !handed ? `<div class="working"></div>` : ""}
     </div>
     ${handed
-      ? `<div class="handover done">✓ задача передана исполнителю · поля зафиксированы ${t.request_id ? "· " + esc(t.request_id) : ""}</div>`
+      ? `<div class="handover done">✓ задача передана исполнителю · поля зафиксированы ${t.request_id ? "· " + esc(t.request_id) : ""}
+         <div style="display:flex;gap:8px;margin-top:10px">
+           <button class="btn sm pri" data-act="decide" data-v="accepted">Принять результат</button>
+           <button class="btn sm" data-act="decide" data-v="rejected">Не принять</button>
+         </div>
+         <div class="note">исполнение идёт в реальном контуре · результат появится в диалоге</div></div>`
       : `<div class="handover"><button class="btn pri" data-act="handover" ${complete ? "" : "disabled"} style="width:100%">Передать исполнителю →</button>
          <div class="note">Уйдёт текст задачи. ${complete ? "Обращение полное." : "Сначала заполните владельца и критерии приёмки."} После передачи поля меняет только диалог.</div></div>`}
     ${handed ? "" : `<div class="composer">
@@ -300,7 +305,8 @@ function wire() {
       else if (act === "send") await send();
       else if (act === "q") { await sendText(el.dataset.t); }
       else if (act === "answer") { const inp = el.closest(".ans").querySelector("[data-answer]"); await sendText(inp.value); }
-      else if (act === "handover") { const r = await api(`tasks/${S.selId}/handover`, "POST"); if (r.ok) { S.full = r.full; await loadTasks(); toast("передано исполнителю"); render(); } else toast(r.reason, "err"); }
+      else if (act === "handover") { const r = await api(`tasks/${S.selId}/handover`, "POST"); if (r.ok) { S.full = r.full; await loadTasks(); toast("передано исполнителю — исполнение запущено"); render(); } else toast(r.reason, "err"); }
+      else if (act === "decide") { let note = ""; if (v === "rejected") { note = (window.prompt("Причина отказа:") || "").trim(); if (!note) return; } S.full = await api(`tasks/${S.selId}/result-decision`, "POST", { decision: v, note }); await loadTasks(); toast(v === "accepted" ? "результат принят" : "результат не принят"); render(); }
       else if (act === "card") { S.cardOpen = true; render(); }
       else if (act === "closecard" || act === "closecard-bg") { S.cardOpen = false; render(); }
       else if (act === "savecard") await saveCard();
@@ -339,4 +345,11 @@ async function submitWizard(kind) {
 }
 
 // ---------- boot ----------
+// Опрос результата: пока открыт переданный исполнителю диалог, подтягиваем
+// доставки реального исполнения (MITA/CITA) и обновляем ленту.
+setInterval(async () => {
+  if (!S.live || !S.selId || !S.full || !S.full.task || !S.full.task.handed) return;
+  if (S.cardOpen || S.drawer) return;
+  try { const f = await api(`tasks/${S.selId}`); S.full = f; render(); } catch { /* ignore */ }
+}, 3500);
 (async () => { try { await loadTasks(); } catch (e) { toast("нет связи с API: " + e.message, "err"); } render(); })();

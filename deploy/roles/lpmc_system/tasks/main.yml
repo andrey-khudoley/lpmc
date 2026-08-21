@@ -2266,6 +2266,21 @@
        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA pact TO \"{{ lpmc_system_web_user }}\";"
   changed_when: false
 
+# Мост в реальный конвейер: веб не имеет доступа к схеме lina, но может вызвать
+# три функции SECURITY DEFINER (подать кандидат, прочитать результат, принять).
+# Функции заведены миграцией lina (005_web_bridge) и исполняются с правами lpmc-lina.
+- name: Выдать веб-интерфейсу право вызвать мост в конвейер (функции lina)
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: >-
+      psql -d {{ lpmc_system_db_name }} -v ON_ERROR_STOP=1 -c
+      "GRANT USAGE ON SCHEMA lina TO \"{{ lpmc_system_web_user }}\";
+       GRANT EXECUTE ON FUNCTION lina.web_submit(text, text, text[], text),
+         lina.web_deliveries(text), lina.web_review(text, text, text)
+         TO \"{{ lpmc_system_web_user }}\";"
+  changed_when: false
+
 - name: Применить миграции веб-интерфейса
   ansible.builtin.command:
     cmd: >-

@@ -79,6 +79,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
     if (action === "message" && m === "POST") { const r = await store.postMessage(pool, id, str(body["text"])); return r ? json(res, 200, r) : json(res, 404, { error: "нет задачи" }); }
     if (action === "comment" && m === "POST") return json(res, 200, await store.addComment(pool, id, str(body["author"]) || "оператор", str(body["text"])) ?? { error: "нет задачи" });
     if (action === "handover" && m === "POST") { const r = await store.handover(pool, id); return json(res, r.ok ? 200 : 409, r); }
+    if (action === "result-decision" && m === "POST") return json(res, 200, await store.reviewDecision(pool, id, str(body["decision"]) || "accepted", str(body["note"])));
     if (action === "move" && m === "POST") return json(res, 200, await store.moveTask(pool, id, Number(body["dir"] ?? 1)) ?? { error: "нет задачи" });
   }
 

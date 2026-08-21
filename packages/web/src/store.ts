@@ -54,12 +54,17 @@ export async function getTaskFull(pool: pg.Pool, id: string): Promise<unknown | 
     "SELECT id, kind, payload, created_at FROM web_messages WHERE dialog_id = $1 ORDER BY id", [dialogId]);
   const c = await pool.query<{ author: string; text: string; created_at: Date }>(
     "SELECT author, text, created_at FROM web_comments WHERE task_id = $1 ORDER BY id", [id]);
-  return {
-    task: t,
-    dialog: d.rows[0],
-    messages: m.rows.map((x) => ({ id: x.id, kind: x.kind, at: x.created_at, ...(x.payload as object) })),
-    comments: c.rows.map((x) => ({ author: x.author, text: x.text, at: x.created_at })),
-  };
+  const messages: unknown[] = m.rows.map((x) => ({ id: x.id, kind: x.kind, at: x.created_at, ...(x.payload as object) }));
+  // Результаты реального исполнения приходят в lina.deliveries — подмешиваем их
+  // как ответы исполнителя (через мост-функцию, без прямого доступа к схеме lina).
+  if (t.handed) {
+    try {
+      const dl = await pool.query<{ text: string; created_at: Date }>(
+        "SELECT text, created_at FROM lina.web_deliveries($1)", [`web-${id}`]);
+      dl.rows.forEach((x, i) => messages.push({ id: `dl${i}`, kind: "reply", at: x.created_at, text: x.text, fromExecutor: true }));
+    } catch { /* мост ещё не доступен — не критично */ }
+  }
+  return { task: t, dialog: d.rows[0], messages, comments: c.rows.map((x) => ({ author: x.author, text: x.text, at: x.created_at })) };
 }
 
 export async function createTask(pool: pg.Pool, title: string, owner: string): Promise<TaskRow> {
@@ -179,13 +184,37 @@ export async function handover(pool: pg.Pool, taskId: string): Promise<{ ok: boo
   const owners = await knownOwners(pool);
   const miss = missingField({ title: t.title, owner: owners.includes(t.owner) ? t.owner : "", dod: t.dod });
   if (miss) return { ok: false, reason: `обращение неполное: не хватает поля «${miss}»` };
-  const reqId = `req-${randomUUID().slice(0, 8)}`;
+  // Реальная передача исполнителю: заводим кандидат в конвейер через мост-функцию
+  // lina.web_submit (SECURITY DEFINER). Дальше — dispatch → PACT → MITA/CITA.
+  const conv = `web-${taskId}`;
+  const dodArr = t.dod.split(";").map((s) => s.trim()).filter((s) => s !== "");
+  let reqId: string;
+  try {
+    const r = await pool.query<{ req: string }>("SELECT lina.web_submit($1, $2, $3::text[], $4) AS req",
+      [t.title, t.owner, dodArr, conv]);
+    reqId = r.rows[0]!.req;
+  } catch (e) {
+    return { ok: false, reason: `не удалось передать в конвейер: ${e instanceof Error ? e.message : String(e)}` };
+  }
   await pool.query("UPDATE web_tasks SET handed=true, status='doing', request_id=$2, updated_at=now() WHERE id=$1",
     [taskId, reqId]);
   const dialogId = await ensureDialog(pool, taskId);
   await pool.query("UPDATE web_dialogs SET status='working' WHERE task_id=$1", [taskId]);
-  await insertMsg(pool, dialogId, "note", { text: `обращение полное · задача передана арбитру · ${reqId}` });
+  await insertMsg(pool, dialogId, "note", { text: `обращение полное · задача передана арбитру · ${reqId} · исполнение запущено` });
   return { ok: true, full: await getTaskFull(pool, taskId) };
+}
+
+/** Приёмка результата человеком (accepted/rejected) — через мост в реальный контур. */
+export async function reviewDecision(pool: pg.Pool, taskId: string, decision: string, note: string): Promise<unknown> {
+  try {
+    await pool.query("SELECT lina.web_review($1, $2, $3)", [`web-${taskId}`, decision, note]);
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+  }
+  const dialogId = await ensureDialog(pool, taskId);
+  await insertMsg(pool, dialogId, "note", { text: decision === "accepted" ? "решение передано: принято" : `решение передано: не принято — ${note}` });
+  if (decision === "accepted") await pool.query("UPDATE web_tasks SET status='done' WHERE id=$1", [taskId]);
+  return getTaskFull(pool, taskId);
 }
 
 export async function moveTask(pool: pg.Pool, taskId: string, dir: number): Promise<unknown | null> {
