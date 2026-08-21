@@ -85,7 +85,7 @@ MITA сегодня — независимая, самостоятельно р�
 `templates/service.md` (`services/<slug>/overview.md`):
 
 - `bizon365/` — общий агентский аккаунт (учётка на 3 проекта: `199542` neso, `129807`
-  larina, `177956` akh-tech), секреты `shared/bizon365/*`;
+  larina, `177956` internal), секреты `shared/bizon365/*`;
 - `chatium/` — low-code платформа, основной рабочий инструмент как аккредитованного
   интегратора; в её карточке перечислены внешние интеграции самой платформы (GetCourse
   SDK, AmoCRM OAuth2, Notion, Toggl Track v9, Bizon365 API v2.0) — они исполняются в
@@ -103,7 +103,7 @@ MITA сегодня — независимая, самостоятельно р�
 
 **Клиентские карточки сервисов** — 14 штук, лежат в `clients/<client>/services/<slug>/overview.md`
 (12: `larina` — 4, `neso` — 8) и `internal/<slug>/services/<slug>/overview.md` (2:
-`akh-tech` — bizon365, kinescope). Вместе с 4 общими карточками — 18 карточек сервисов
+`internal` — bizon365, kinescope). Вместе с 4 общими карточками — 18 карточек сервисов
 во всей системе.
 
 Все 18 карточек проверены на поле `type` во frontmatter (шаблон `templates/service.md`
@@ -188,7 +188,7 @@ Egress proxy как механизм принуждения границы «и�
 - `/home/agent/workspaces/cloud-tech-tasks/services/INDEX.md`,
   `services/{bizon365,chatium,gc-chatium-gateway,kinescope}/overview.md`
 - `/home/agent/workspaces/cloud-tech-tasks/clients/{larina,neso}/services/*/overview.md`,
-  `/home/agent/workspaces/cloud-tech-tasks/internal/akh-tech/services/*/overview.md`
+  `/home/agent/workspaces/cloud-tech-tasks/internal/services/*/overview.md`
 - `/home/agent/workspaces/cloud-tech-tasks/.agents/mcp/registry.json`
 - `/home/agent/workspaces/cloud-tech-tasks/notes/2026-08/2026-08-08-bizon365-sni-blocked.md`
 - `/home/agent/workspaces/cloud-vds-admin/second-system/CONTOURS.md` §13,

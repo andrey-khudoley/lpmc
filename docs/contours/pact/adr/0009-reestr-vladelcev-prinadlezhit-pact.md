@@ -6,7 +6,7 @@
 
 ## Контекст
 
-Слаг владельца (`neso`, `larina`, `akh-tech` и 18 слагов проектов — `clients/` 2,
+Слаг владельца (`neso`, `larina`, `internal` и 18 слагов проектов — `clients/` 2,
 `projects/` 18, `internal/` 1, плюс сводный `projects/INDEX.md`) прошивает насквозь
 несколько разных механизмов: пути карточек задач и сервисов, имена секретов в
 `.secrets/totp/<owner>/<service>` и `.secrets/storage-state/<owner>/<service>.json`,
@@ -23,7 +23,7 @@
 путей задач и секретов), `projects/INDEX.md` (человеческая группировка «активные» /
 «завершённые» / «backlog»), и ключ `kiosk_browser_instances` в
 `/var/lib/infra/src/config/ansible-vars.yml` на узле (четыре инстанса: `default` index 0,
-`larina` index 1, `neso` index 2, `akh-tech` index 3 — заведён под root, вне обоих
+`larina` index 1, `neso` index 2, `internal` index 3 — заведён под root, вне обоих
 репозиториев, и `infra/web-browser/README.md` в MITA уже как минимум на день устарел
 относительно него). Ошибочная классификация владельца сегодня тихо искажает все срезы
 «по клиентам» (пользователь считает клиентами только `neso` и `larina`, а не всех 21

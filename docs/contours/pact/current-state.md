@@ -51,7 +51,7 @@
   (`common/00-purpose.md` … `common/13-agent-toolkit.md`, `runtime/claude.md`,
   `runtime/codex.md`), ни во всех 44 журналах `llm/` (34 в корневом системном `llm/`
   + 10 владельческих: `clients/neso/llm` — 3, `clients/larina/llm` — 6,
-  `internal/akh-tech/llm` — 1; см. `vds-kz-mita/docs/llm-journals.md` §7). То же верно
+  `internal/llm` — 1; см. `vds-kz-mita/docs/llm-journals.md` §7). То же верно
   для «LINA» и «CITA».
 - **Egress-контроль на уровне сети тоже отсутствует.** Роль `nftables`
   (`/var/lib/infra/src`) фильтрует только `INPUT`; цепочка `OUTPUT` — `policy accept`.
@@ -76,8 +76,8 @@
 |---|---|---|
 | Реестр задач, состояния, лизинги | MITA: каталоги задач владельца + поле `status` во frontmatter карточки | `<root>/<owner>/tasks/{inbox,active,archive}/`, карточка `tasks/active/YYYY-MM-DD-<slug>/task.md`; статус: `inbox → active → (blocked\|review) → done \| cancelled`. Грубое состояние — каталог, точное — `status:` во frontmatter. Id задачи — `<owner>/YYYY-MM-DD-<slug>` |
 | Таблицы правил, ограничения на действия | MITA: общая политика + локальные правила владельца, локальные приоритетнее общих | `.agents/policy/common/*.md`, `.agents/policy/runtime/{claude,codex}.md` (собираются в корневые `AGENTS.md`/`AGENTS.override.md`) и `<root>/<owner>/instructions.md` |
-| Реестр владельцев (скоуп политик) | MITA: три корня + индексы | `clients/` (2: NeSo Академия, ИП Ларина) + `INDEX.md`; `projects/` (18 владельцев) + `INDEX.md`; `internal/` (1: akh-tech) + `INDEX.md` |
-| Привязка «владелец → браузерный инстанс» (часть выдачи полномочий на исполнение) | ни MITA, ни PACT — отдельный носитель вне обоих репозиториев, под root | `/var/lib/infra/src/config/ansible-vars.yml`, ключ `kiosk_browser_instances` (`default`→0, `larina`→1, `neso`→2, `akh-tech`→3, CDP-порты 9222–9225) |
+| Реестр владельцев (скоуп политик) | MITA: три корня + индексы | `clients/` (2: NeSo Академия, ИП Ларина) + `INDEX.md`; `projects/` (18 владельцев) + `INDEX.md`; `internal/` (1: internal) + `INDEX.md` |
+| Привязка «владелец → браузерный инстанс» (часть выдачи полномочий на исполнение) | ни MITA, ни PACT — отдельный носитель вне обоих репозиториев, под root | `/var/lib/infra/src/config/ansible-vars.yml`, ключ `kiosk_browser_instances` (`default`→0, `larina`→1, `neso`→2, `internal`→3, CDP-порты 9222–9225) |
 | Custody значений секретов, выдача под задачу | MITA: секреты в открытом виде, прямое чтение без посредника | `.secrets/env` (10 ключей, 1931 байт, `chmod 600`); `.secrets/totp/<owner>/<service>` (4 файла, base32); `.secrets/storage-state/<owner>/<service>.json` (4 снимка); читаются напрямую через `fs.readFileSync` в `var/login-checks/lib.mjs` |
 | Классификация необратимых операций, approval | не существует нигде; на практике — дисциплина исполнителя по тексту политики, не enforcement | `.agents/policy/` (текстовые правила, не проверяются кодом) |
 | Egress-проверка результата перед возвратом человеку | MITA: сама формирует и сама же решает, что отдать человеку | скилл `execute-task` / роль `task-executor` формирует отчёт менеджеру; маскирование секретов в `llm/` делает тот же агент, что и работал с секретом — независимого контролёра нет |

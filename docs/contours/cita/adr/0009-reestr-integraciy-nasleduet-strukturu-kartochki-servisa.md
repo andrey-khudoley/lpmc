@@ -26,7 +26,7 @@ frontmatter `name`, `client` (слаг владельца либо `shared`), `t
 о Playwright storage-state), «Возможности и типовые операции», «Грабли и особенности».
 Значение `type: api` в шаблоне предусмотрено с самого начала, но из 18 фактических
 карточек сервисов в MITA (`clients/neso/services/*` — 8, `clients/larina/services/*` —
-4, `internal/akh-tech/services/*` — 2, корневые `services/*` — 4) ни одна его не
+4, `internal/services/*` — 2, корневые `services/*` — 4) ни одна его не
 использует: 15 карточек имеют `type: web` (11 клиентских + 4 общих), 3 клиентских —
 `type: other`. Индекс `services/INDEX.md` — плоский список карточек с однострочным
 описанием и правилом «после изменения содержимого каталога с `INDEX.md` — обновить

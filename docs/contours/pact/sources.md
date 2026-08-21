@@ -43,7 +43,7 @@ custody, где сегодня секреты, что такое инвариа�
 `/home/agent/workspaces/cloud-tech-tasks`. Слово `PACT` не встречается в его исходниках
 ни разу — ни в `AGENTS.md`, ни в `.agents/policy/`, ни во всех 44 журналах `llm/`
 (34 в корневом системном `llm/` + 10 владельческих: `clients/neso`, `clients/larina`,
-`internal/akh-tech`). Тем не
+`internal`). Тем не
 менее сегодня именно этот репозиторий физически хранит всё, что по архитектуре должно
 принадлежать PACT: реестр задач (`tasks/{inbox,active,archive}` + поле `status` во
 frontmatter карточек), правила (`.agents/policy/`, `<owner>/instructions.md`), реестр

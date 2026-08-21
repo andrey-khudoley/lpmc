@@ -56,7 +56,7 @@
 - [`services.md`](services.md) — реестр `services/`: 4 сервиса (bizon365, chatium, gc-chatium-gateway,
   kinescope) + `INDEX.md`, состав карточки сервиса, что в неё сегодня свалено за отсутствием PACT/CITA.
 - [`runtime/browser.md`](runtime/browser.md) — браузерный стек: четыре инстанса (default/larina/neso/
-  akh-tech) под общим системным пользователем `kiosk-browser`, CDP-порты 9222–9225, headed-режим,
+  internal) под общим системным пользователем `kiosk-browser`, CDP-порты 9222–9225, headed-режим,
   конфигурация вне репозитория в `/var/lib/infra/src` (роль `kiosk_browser`), `infra/playwright/` и
   `infra/web-browser/` в самом репозитории.
 - [`runtime/human-view.md`](runtime/human-view.md) — аварийный просмотр сессии человеком: `infra/web-

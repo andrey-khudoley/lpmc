@@ -24,7 +24,7 @@
 
 | Карточка | `type` во frontmatter | Что описывает | Вердикт |
 |---|---|---|---|
-| `services/bizon365/overview.md` | `web` | Общий агентский аккаунт Bizon365 (одна учётка на проекты нескольких клиентов: `199542` neso, `129807` larina, `177956` akh-tech) | остаётся у MITA; раздел «Доступ» заполнен (URL, `shared/bizon365/*`), но карточка описывает вход через веб-интерфейс |
+| `services/bizon365/overview.md` | `web` | Общий агентский аккаунт Bizon365 (одна учётка на проекты нескольких клиентов: `199542` neso, `129807` larina, `177956` internal) | остаётся у MITA; раздел «Доступ» заполнен (URL, `shared/bizon365/*`), но карточка описывает вход через веб-интерфейс |
 | `services/chatium/overview.md` | `web` | Low-code платформа, на которой построены клиентские продукты; внешние интеграции самой платформы | см. §5 — отдельный разбор, вердикт «вне контуров» для перечисленных в карточке интеграций |
 | `services/gc-chatium-gateway/overview.md` | `web` | Собственный gateway-продукт автора Chatium↔GetCourse | см. §4 — отдельный разбор, вердикт «ближайший кандидат в CITA» |
 | `services/kinescope/overview.md` | `web` | Общий аккаунт исполнителя (AKH Tech) в Kinescope | остаётся у MITA; в тексте карточки зафиксировано наблюдение `app.kinescope.io/api/entities` и GraphQL-операций (см. §6), но сама карточка — про вход и работу через веб-интерфейс |
@@ -59,8 +59,8 @@
 | `neso` | `salebot` | `other` (`completeness: stub`) | остаётся у MITA |
 | `neso` | `telegram` | `other` (`completeness: stub`) | вне контуров у MITA как отдельной интеграции — см. примечание ниже |
 | `neso` | `zoom` | `web` | остаётся у MITA |
-| `internal/akh-tech` | `bizon365` | `web` | остаётся у MITA |
-| `internal/akh-tech` | `kinescope` | `web` | остаётся у MITA |
+| `internal` | `bizon365` | `web` | остаётся у MITA |
+| `internal` | `kinescope` | `web` | остаётся у MITA |
 
 Итого: **11 карточек `type: web`, 3 карточки `type: other`** (`neso/payments`,
 `neso/salebot`, `neso/telegram`, все три — `completeness: stub`, разделы «Доступ» и
@@ -280,7 +280,7 @@ GetCourse в имени не означает работу через GetCourse 
 | `services/kinescope/overview.md` | `services/kinescope/overview.md` | остаётся у MITA |
 | `services/chatium/overview.md` | `services/chatium/overview.md` | вне контуров (интеграции исполняются облаком Chatium) |
 | `services/gc-chatium-gateway/overview.md` | `services/gc-chatium-gateway/overview.md` | зачаток CITA (ближайший кандидат, но без данных для реестра) |
-| 14 клиентских карточек сервисов | `clients/*/services/*/overview.md`, `internal/akh-tech/services/*/overview.md` | остаются у MITA |
+| 14 клиентских карточек сервисов | `clients/*/services/*/overview.md`, `internal/services/*/overview.md` | остаются у MITA |
 | Наблюдение Kinescope `api/entities` + GraphQL | `services/kinescope/overview.md`, `var/kinescope/net.mjs` и др. | пограничное — сегодня остаётся у MITA, статус не решён (ADR 0007) |
 | Наблюдение Bizon365 CSRF/создание комнаты | `clients/neso/services/bizon365/overview.md` | пограничное — сегодня остаётся у MITA, статус не решён (ADR 0007); проверка недоступна (SNI-фильтрация `start.bizon365.ru`) |
 | `var/kinescope/*.mjs` (27 файлов) | `var/kinescope/` | остаётся у MITA (CDP-автоматизация) |

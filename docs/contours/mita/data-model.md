@@ -321,7 +321,7 @@ owner (clients|projects|internal)
 
 Кросс-owner'ные связи возникают там, где физический аккаунт/сервис общий (слаг
 `shared`): Bizon365 и Kinescope — один агентский аккаунт исполнителя обслуживает
-`neso`, `larina` и (для Kinescope) `akh-tech` как отдельные проекты внутри себя;
+`neso`, `larina` и (для Kinescope) `internal` как отдельные проекты внутри себя;
 Chatium и `gc-chatium-gateway` — общий инструмент/продукт исполнителя, используемый в
 задачах разных владельцев одновременно.
 
@@ -370,14 +370,14 @@ Chatium и `gc-chatium-gateway` — общий инструмент/продук
 
 Для файлов, изначально созданных внутри новой системы (не мигрированных), эти поля не
 обязательны — пример: `services/bizon365/overview.md`, `services/kinescope/overview.md`,
-`internal/akh-tech/overview.md`, заведённые 2026-08-08/09, таких полей не имеют.
+`internal/overview.md`, заведённые 2026-08-08/09, таких полей не имеют.
 
 ---
 
 ## 11. Язык и слаги
 
 Содержимое файлов — русский язык. Имена файлов, каталогов и слаги — английский,
-kebab-case, без пробелов: `neso`, `larina`, `akh-tech`, `gc-chatium-gateway`,
+kebab-case, без пробелов: `neso`, `larina`, `internal`, `gc-chatium-gateway`,
 `dmitry-bernadskiy`. Правило зафиксировано в `.agents/policy/common/03-language.md`
 (в составе канона, собирается в `CLAUDE.md`/`AGENTS.md`; прочитан целиком):
 «Содержимое файлов — русский. Имена файлов, каталогов и слаги — английские,
