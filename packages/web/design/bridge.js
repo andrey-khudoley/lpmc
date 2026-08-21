@@ -65,8 +65,11 @@
 
   P.loadAdmin = async function () {
     try {
-      const [sv, se, ap, inst] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/instances")]);
+      const [sv, se, ap, inst, ow] = await Promise.all([jx("admin/services"), jx("admin/secrets"), jx("admin/approvals"), jx("admin/instances"), jx("admin/owners")]);
       this.setState({
+        realOwners: (ow.owners || []).map((o) => o.slug),
+        ownerRows: (ow.owners || []).map((o) => ({ slug: o.slug, category: o.category })),
+        bindingRows: (ow.bindings || []).map((b) => ({ sender: b.sender, route: b.route, owner: b.owner_slug })),
         allow: (sv.allow || []).map((a) => ({ owner: a.owner, host: a.host, methods: a.methods, paths: a.paths, op: a.op, version: a.version })),
         irr: (sv.irr || []).map((a) => ({ host: a.host, op: a.op, cls: a.cls, version: a.version })),
         rules: (sv.rules || []).map((a) => ({ sender: a.sender, owner: a.owner, caps: a.caps, exec: a.exec, lease: a.lease + " s", appr: a.appr })),
@@ -158,4 +161,31 @@
   };
   P.decideApproval = function () { this.toast("подтверждение", "решение — через доверенный путь approvald (одноразовая ссылка)"); };
   P.issueView = function () { this.toast("просмотр экрана", "выдача ссылки — сервисом lpmc-view (30 мин)"); };
+
+  // Удаление секрета: макет строит confirm.onConfirm замыканием в renderVals —
+  // оборачиваем renderVals и подменяем действие на реальный backend.
+  const origRV = P.renderVals;
+  P.renderVals = function () {
+    const v = origRV.call(this);
+    if (v && v.confirm && v.confirm.open && this.state.confirm && this.state.confirm.name) {
+      const name = this.state.confirm.name;
+      v.confirm.onConfirm = async () => {
+        try { await jx("admin/secret/" + encodeURIComponent(name), "DELETE"); this.toast("custody", "секрет " + name + " удалён"); }
+        catch (e) { this.toast("ошибка", e.message); }
+        this.setState({ confirm: null });
+        await this.loadAdmin();
+      };
+    }
+    // Удаление задачи из карточки (кнопка «Удалить» в футере).
+    if (v && v.card && v.card.exists && !v.readOnly) {
+      v.card.onDelete = async () => {
+        const id = this.state.selectedTask; if (!id) return;
+        if (typeof window !== "undefined" && !window.confirm("Удалить задачу безвозвратно?")) return;
+        try { await jx("tasks/" + id, "DELETE"); this.toast("задача", "удалена"); } catch (e) { this.toast("ошибка", e.message); }
+        this.setState({ cardOpen: false, selectedTask: null, chatHidden: true });
+        await this.loadAll(null);
+      };
+    }
+    return v;
+  };
 })();

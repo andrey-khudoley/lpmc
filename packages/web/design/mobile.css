@@ -32,6 +32,11 @@
   /* Админка: узкая иконочная навигация и один столбец. */
   [data-role="adminnav"] { width: 52px !important; }
   [data-role="twocol"] { grid-template-columns: 1fr !important; }
+
+  /* Привилегированный баннер: на телефоне только суть + кнопка выхода,
+     многословные части (оператор/права/сессия) скрыты. */
+  [data-mob="privinfo"] { display: none !important; }
+  [data-role="hatch"] { flex-wrap: wrap !important; padding: 7px 12px !important; gap: 10px !important; }
 }
 
 @media (max-width: 430px) {

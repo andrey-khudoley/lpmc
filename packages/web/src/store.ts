@@ -223,6 +223,12 @@ export async function reviewDecision(pool: pg.Pool, taskId: string, decision: st
   return getTaskFull(pool, taskId);
 }
 
+/** Удаление задачи (каскадом — диалог, сообщения, комментарии). */
+export async function deleteTask(pool: pg.Pool, taskId: string): Promise<{ ok: boolean }> {
+  await pool.query("DELETE FROM web_tasks WHERE id = $1", [taskId]);
+  return { ok: true };
+}
+
 export async function moveTask(pool: pg.Pool, taskId: string, dir: number): Promise<unknown | null> {
   const order = ["todo", "doing", "review", "done"];
   const t = await getTask(pool, taskId);

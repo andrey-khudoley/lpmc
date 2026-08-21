@@ -17,13 +17,13 @@ export async function owners(pool: pg.Pool): Promise<unknown> {
 
 export async function services(pool: pg.Pool): Promise<unknown> {
   const allow = await pool.query(
-    `SELECT owner_slug AS owner, host, methods, path_prefixes AS paths, operation_type AS op, ruleset_version AS version
+    `SELECT id, owner_slug AS owner, host, methods, path_prefixes AS paths, operation_type AS op, ruleset_version AS version
        FROM pact.egress_allow ORDER BY owner_slug, host`);
   const irr = await pool.query(
-    `SELECT host, operation_type AS op, classification AS cls, ruleset_version AS version
+    `SELECT id, host, operation_type AS op, classification AS cls, ruleset_version AS version
        FROM pact.irreversibility ORDER BY host`);
   const rules = await pool.query(
-    `SELECT sender, owner_slug AS owner, capabilities AS caps, executor AS exec,
+    `SELECT id, sender, owner_slug AS owner, capabilities AS caps, executor AS exec,
             lease_ttl_seconds AS lease, requires_approval AS appr, ruleset_version AS version
        FROM pact.rules ORDER BY owner_slug, sender`);
   return { allow: allow.rows, irr: irr.rows, rules: rules.rows };
@@ -88,4 +88,37 @@ export async function addIrr(pool: pg.Pool, i: { host: string; op: string; cls: 
      VALUES ($1,$2,$3,$4)
      ON CONFLICT (ruleset_version, host, operation_type) DO UPDATE SET classification = EXCLUDED.classification`,
     [v, i.host, i.op, i.cls]);
+}
+
+// ---- Владельцы и привязки (add/delete) -------------------------------------
+export async function addOwner(pool: pg.Pool, slug: string, category: string): Promise<void> {
+  const cat = ["client", "project", "internal"].includes(category) ? category : "client";
+  await pool.query(
+    `INSERT INTO pact.owners (slug, category) VALUES ($1, $2)
+     ON CONFLICT (slug) DO UPDATE SET category = EXCLUDED.category`, [slug, cat]);
+}
+export async function delOwner(pool: pg.Pool, slug: string): Promise<{ ok: boolean; reason?: string }> {
+  try { await pool.query("DELETE FROM pact.owners WHERE slug = $1", [slug]); return { ok: true }; }
+  catch (e) { return { ok: false, reason: "владелец используется правилами/привязками: " + (e instanceof Error ? e.message : String(e)) }; }
+}
+export async function addBinding(pool: pg.Pool, sender: string, owner: string, route: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO pact.owner_bindings (sender, reply_route_id, owner_slug) VALUES ($1, $2, $3)
+     ON CONFLICT (sender, coalesce(reply_route_id, '')) DO UPDATE SET owner_slug = EXCLUDED.owner_slug`,
+    [sender, route === "" ? null : route, owner]);
+}
+
+// ---- Удаление строк политики и имён секретов -------------------------------
+export async function delAllow(pool: pg.Pool, id: number): Promise<void> {
+  await pool.query("DELETE FROM pact.egress_allow WHERE id = $1", [id]);
+}
+export async function delRule(pool: pg.Pool, id: number): Promise<void> {
+  await pool.query("DELETE FROM pact.rules WHERE id = $1", [id]);
+}
+export async function delIrr(pool: pg.Pool, id: number): Promise<void> {
+  await pool.query("DELETE FROM pact.irreversibility WHERE id = $1", [id]);
+}
+// Удаление ИМЕНИ секрета (и значения по каскаду). Мастер-ключ не нужен.
+export async function delSecret(pool: pg.Pool, name: string): Promise<void> {
+  await pool.query("DELETE FROM pact.secret_names WHERE name = $1", [name]);
 }

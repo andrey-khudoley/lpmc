@@ -69,6 +69,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
     const id = seg[2];
     const action = seg[3];
     if (!action && m === "GET") { const t = await store.getTaskFull(pool, id); return t ? json(res, 200, t) : json(res, 404, { error: "нет задачи" }); }
+    if (!action && m === "DELETE") return json(res, 200, await store.deleteTask(pool, id));
     if (!action && m === "PATCH") {
       const patch: import("./lina.js").Patch = {};
       for (const k of ["title", "owner", "status", "prio", "due_date", "dod"] as const) {
@@ -93,6 +94,16 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
   if (path === "/api/admin/allow" && m === "POST") { await admin.addAllow(pool, { owner: str(body["owner"]) || "*", host: str(body["host"]), methods: arr(body["methods"]), paths: arr(body["paths"]), op: str(body["op"]) || "auto" }); return json(res, 201, { ok: true }); }
   if (path === "/api/admin/rule" && m === "POST") { await admin.addRule(pool, { sender: str(body["sender"]), owner: str(body["owner"]), caps: arr(body["caps"]), exec: str(body["exec"]) || "mita", lease: Number(body["lease"] ?? 1800), appr: Boolean(body["appr"]) }); return json(res, 201, { ok: true }); }
   if (path === "/api/admin/irr" && m === "POST") { await admin.addIrr(pool, { host: str(body["host"]), op: str(body["op"]) || "write", cls: str(body["cls"]) || "irreversible" }); return json(res, 201, { ok: true }); }
+  if (path === "/api/admin/owner" && m === "POST") { await admin.addOwner(pool, str(body["slug"]), str(body["category"]) || "client"); return json(res, 201, { ok: true }); }
+  if (path === "/api/admin/binding" && m === "POST") { await admin.addBinding(pool, str(body["sender"]), str(body["owner"]), str(body["route"])); return json(res, 201, { ok: true }); }
+  if (seg[0] === "api" && seg[1] === "admin" && seg[3] && m === "DELETE") {
+    const kind = seg[2]; const key = decodeURIComponent(seg[3]);
+    if (kind === "owner") return json(res, 200, await admin.delOwner(pool, key));
+    if (kind === "secret") { await admin.delSecret(pool, key); return json(res, 200, { ok: true }); }
+    if (kind === "allow") { await admin.delAllow(pool, Number(key)); return json(res, 200, { ok: true }); }
+    if (kind === "rule") { await admin.delRule(pool, Number(key)); return json(res, 200, { ok: true }); }
+    if (kind === "irr") { await admin.delIrr(pool, Number(key)); return json(res, 200, { ok: true }); }
+  }
 
   json(res, 404, { error: "нет такого метода" });
 }

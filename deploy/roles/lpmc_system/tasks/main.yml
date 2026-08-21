@@ -2263,6 +2263,8 @@
          pact.irreversibility, pact.secret_names, pact.session_snapshots, pact.approvals
          TO \"{{ lpmc_system_web_user }}\";
        GRANT INSERT ON pact.egress_allow, pact.rules, pact.irreversibility TO \"{{ lpmc_system_web_user }}\";
+       GRANT INSERT, DELETE ON pact.owners, pact.owner_bindings TO \"{{ lpmc_system_web_user }}\";
+       GRANT DELETE ON pact.egress_allow, pact.rules, pact.irreversibility, pact.secret_names TO \"{{ lpmc_system_web_user }}\";
        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA pact TO \"{{ lpmc_system_web_user }}\";"
   changed_when: false
 

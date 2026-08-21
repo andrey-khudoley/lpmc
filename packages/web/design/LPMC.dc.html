@@ -560,6 +560,7 @@
 
           <div style="flex:none;border-top:1px solid var(--line-2);padding:13px 20px;display:flex;align-items:center;gap:11px;background:var(--surface-2);">
             <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--fg3);flex:1;line-height:1.5;">{{ card.footNote }}</span>
+            <span onClick="{{ card.onDelete }}" style="cursor:pointer;border:1px solid var(--danger);color:var(--danger);padding:9px 15px;font-size:12.5px;" style-hover="background:var(--danger-soft)">Удалить</span>
             <span onClick="{{ card.onClose }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:9px 15px;font-size:12.5px;" style-hover="border-color:var(--fg3)">Закрыть</span>
           </div>
         </div>
@@ -1359,7 +1360,7 @@ class Component extends DCLogic {
     const taskViews = [['table', 'Таблица'], ['board', 'Канбан'], ['timeline', 'Таймлайн']]
       .map(([k, label]) => ({ label, onPick: () => this.setState({ taskView: k }), style: tab(s.taskView === k) }));
 
-    const owners = ['acme-school', 'kz-central', 'lpmc-internal'];
+    const owners = (this.state.realOwners && this.state.realOwners.length) ? this.state.realOwners : ['internal'];
     const fchip = (on) => 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.03em;padding:5px 9px;border:1px solid '
       + (on ? 'var(--accent-line);color:var(--accent);background:var(--accent-soft);' : 'var(--line);color:var(--fg3);');
     const rochip = 'cursor:default;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.03em;padding:5px 9px;border:1px solid var(--line-2);color:var(--fg2);';
@@ -1618,7 +1619,7 @@ class Component extends DCLogic {
       + (on ? 'var(--accent);color:var(--accent);background:var(--accent-soft);' : 'var(--line-2);color:var(--fg2);');
     let wizard = { open: false, fields: [] };
     if (w) {
-      const owners = ['acme-school', 'kz-central', 'lpmc-internal', '*'];
+      const owners = (this.state.realOwners && this.state.realOwners.length) ? [...this.state.realOwners, '*'] : ['internal', '*'];
       let title = '', fields = [], warn = false, warnText = '';
       if (w.kind === 'endpoint') {
         if (w.step === 1) { title = 'Разрешить эндпоинт · владелец и хост';

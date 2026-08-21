@@ -13,8 +13,11 @@ let html = readFileSync(join(here, "LPMC.dc.html"), "utf8");
 const bridge = readFileSync(join(here, "bridge.js"), "utf8");
 const mobile = readFileSync(join(here, "mobile.css"), "utf8");
 
-// 0) Зацепка на верхнюю навигацию (у макета нет data-role) + мобильные стили.
+// 0) Зацепки для мобильной адаптации (у макета нет нужных селекторов) + стили.
 html = html.replace('<div style="height:54px;', '<div data-mob="topnav" style="height:54px;');
+// Многословные части привилегированного баннера — скрываем на телефоне.
+html = html.replace('<span style="color:var(--fg2);">оператор ', '<span data-mob="privinfo" style="color:var(--fg2);">оператор ');
+html = html.replace('<span style="color:var(--fg2);">сессия оператора', '<span data-mob="privinfo" style="color:var(--fg2);">сессия оператора');
 html = html.replace("</head>", "<style>\n" + mobile + "\n</style>\n</head>");
 
 // 1) React перед support.js
