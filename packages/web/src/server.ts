@@ -97,7 +97,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
 
   // ---- Ассистент админки ----
   if (path === "/api/admin/assistant" && m === "GET") return json(res, 200, await assistant.getAssistant(pool));
-  if (path === "/api/admin/assistant" && m === "POST") return json(res, 200, await assistant.assistantMessage(pool, str(body["text"]), str(body["screen"])));
+  if (path === "/api/admin/assistant" && m === "POST") return json(res, 200, await assistant.assistantMessage(pool, str(body["text"]), str(body["scope"])));
 
   // ---- Админ ----
   if (path === "/api/admin/owners" && m === "GET") return json(res, 200, await admin.owners(pool));

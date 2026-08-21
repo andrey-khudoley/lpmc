@@ -111,14 +111,21 @@
     catch (e) { /* общий диалог не критичен для остального интерфейса */ }
   };
   P.loadAdminInbox = async function () {
-    try { const r = await jx("admin/assistant"); this.setState({ adminInbox: (r.messages || []).map(mapMsg) }); }
-    catch (e) { /* ассистент админки не критичен для остального */ }
+    try {
+      const r = await jx("admin/assistant");
+      // Раздельные ленты: группируем по scope, у каждой панели своя история.
+      const by = {};
+      (r.messages || []).forEach((m) => { (by[m.scope || ""] = by[m.scope || ""] || []).push(m); });
+      const mapped = {};
+      Object.keys(by).forEach((k) => { mapped[k] = by[k].map(mapMsg); });
+      this.setState({ adminInbox: mapped });
+    } catch (e) { /* ассистент админки не критичен для остального */ }
   };
-  P.adminSend = async function () {
-    const text = (this.state.adminComposer || "").trim(); if (!text) return;
+  P.adminSend = async function (scope) {
+    const text = (this.state.adminComposer || "").trim(); if (!text || !scope) return;
     this.setState({ adminComposer: "" });
-    // Ассистент админки: разбирает запрос и создаёт сущность; экран — контекст.
-    try { await jx("admin/assistant", "POST", { text, screen: this.state.adminScreen || "" }); } catch (e) { this.toast("ошибка", e.message); }
+    // Тип сущности задаётся разделом (scope), а не текстом запроса.
+    try { await jx("admin/assistant", "POST", { text, scope }); } catch (e) { this.toast("ошибка", e.message); }
     await this.loadAdminInbox();
     await this.loadAdmin();
   };

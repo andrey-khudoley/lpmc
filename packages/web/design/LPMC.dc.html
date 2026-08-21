@@ -918,20 +918,18 @@
         </sc-if>
       </div>
 
-      <!-- ассистент админки: создаёт сущности по запросу -->
+      <!-- ассистент раздела: тип сущности задаёт сам раздел (scope) -->
+      <sc-if value="{{ assist.on }}" hint-placeholder-val="{{ true }}">
       <div data-role="assistpanel" style="width:390px;flex:none;border-left:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;min-width:0;">
         <div style="flex:none;border-bottom:1px solid var(--line);padding:13px 16px;display:flex;flex-direction:column;gap:6px;">
-          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">ассистент админки</span>
-          <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;line-height:1.3;">Заводит сущности по запросу</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);">ассистент раздела</span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;line-height:1.3;">{{ assist.title }}</span>
         </div>
         <div style="flex:1;overflow:auto;min-height:0;padding:16px;display:flex;flex-direction:column;gap:14px;">
           <sc-if value="{{ assist.fresh }}" hint-placeholder-val="{{ true }}">
             <div style="display:flex;flex-direction:column;gap:10px;animation:rise .25s ease;">
-              <span style="font-size:13px;line-height:1.6;color:var(--fg2);">Опишите, что завести — я создам через ту же политику PACT. Примеры:</span>
-              <div style="border:1px dashed var(--accent-line);background:var(--surface);padding:11px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.95;color:var(--fg2);white-space:pre-line;">добавь клиента acme-school
-разреши internal example.com GET
-правило cli:operator internal page.read report.build исполнитель mita
-добавь тип Проверить доступность</div>
+              <span style="font-size:13px;line-height:1.6;color:var(--fg2);">Опишите, что завести — раздел уже знает тип. Примеры:</span>
+              <div style="border:1px dashed var(--accent-line);background:var(--surface);padding:11px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.95;color:var(--fg2);white-space:pre-line;">{{ assist.examples }}</div>
             </div>
           </sc-if>
           <sc-for list="{{ assist.messages }}" as="m" hint-placeholder-count="4">
@@ -969,6 +967,7 @@
           </sc-if>
         </div>
       </div>
+      </sc-if>
     </sc-if>
 
     <!-- ── Мастер (drawer) ── -->
@@ -1805,6 +1804,32 @@ class Component extends DCLogic {
       onEdit: () => this.openWizard('tasktype', t),
       onDelete: () => this.delTaskType(t) }));
 
+    // ── ассистент раздела: тип сущности задаёт сам раздел (scope), не текст
+    const assistScope = s.adminScreen === 'clients' ? 'client'
+      : s.adminScreen === 'types' ? 'tasktype'
+      : s.adminScreen === 'services' ? (s.servicesTab === 'rules' ? 'rule' : 'endpoint')
+      : '';
+    const assistMeta = {
+      client:   { title: 'Ассистент · Клиенты',   ph: 'добавь клиента acme-school',
+        ex: 'добавь клиента acme-school\nзаведи клиента notion категория project' },
+      endpoint: { title: 'Ассистент · Эндпоинты', ph: 'internal example.com GET',
+        ex: 'internal example.com GET\ninternal api.notion.com POST пути /v1 операция write' },
+      rule:     { title: 'Ассистент · Правила',   ph: 'cli:operator internal page.read report.build',
+        ex: 'cli:operator internal page.read report.build исполнитель mita\ncli:operator internal page.read report.build лизинг 900' },
+      tasktype: { title: 'Ассистент · Типы задач', ph: 'название типа, напр. Проверить DNS',
+        ex: 'Проверить доступность страницы\nПрочитать страницу и найти строку' }
+    }[assistScope] || null;
+    const assistMsgs = (s.adminInbox && s.adminInbox[assistScope]) || [];
+    const assist = {
+      on: !!assistScope, title: assistMeta ? assistMeta.title : '', examples: assistMeta ? assistMeta.ex : '',
+      fresh: assistMsgs.length === 0, messages: assistMsgs, composer: s.adminComposer || '',
+      placeholder: assistMeta ? assistMeta.ph : 'что завести?',
+      onInput: e => this.setState({ adminComposer: e.target.value }),
+      onKey: e => { if (e.key === 'Enter') this.adminSend(assistScope); },
+      onSend: () => this.adminSend(assistScope),
+      sendStyle: btn((s.adminComposer || '').trim() ? 'var(--accent-fill)' : 'var(--surface-2)', (s.adminComposer || '').trim() ? 'var(--accent-fill-fg)' : 'var(--fg3)')
+    };
+
     // ── мастер
     const w = s.wizard;
     const pick = (on) => 'cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:7px 11px;border:1px solid '
@@ -1969,16 +1994,7 @@ class Component extends DCLogic {
       isClients: s.adminScreen === 'clients', clientRows, bindingRows,
       openClientWizard: () => this.openWizard('client'),
       isTypes: s.adminScreen === 'types', typeRows, openTypeWizard: () => this.openWizard('tasktype'),
-      assist: {
-        fresh: !(s.adminInbox && s.adminInbox.length),
-        messages: (s.adminInbox || []).map(mapMsg),
-        composer: s.adminComposer || '',
-        placeholder: 'что завести? например: добавь клиента acme-school',
-        onInput: e => this.setState({ adminComposer: e.target.value }),
-        onKey: e => { if (e.key === 'Enter') this.adminSend(); },
-        onSend: () => this.adminSend(),
-        sendStyle: btn((s.adminComposer || '').trim() ? 'var(--accent-fill)' : 'var(--surface-2)', (s.adminComposer || '').trim() ? 'var(--accent-fill-fg)' : 'var(--fg3)')
-      },
+      assist,
       serviceTabs, tabAllow: s.servicesTab === 'allow', tabIrr: s.servicesTab === 'irr', tabRules: s.servicesTab === 'rules',
       allowRows, irrRows, ruleRows, secretRows,
       openEndpointWizard: () => this.openWizard('endpoint'), openSecretWizard: () => this.openWizard('secret'),
