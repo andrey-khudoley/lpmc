@@ -7,6 +7,7 @@ import * as store from "./store.js";
 import * as admin from "./admin.js";
 import * as assistant from "./assistant.js";
 import * as llm from "./llm.js";
+import * as scenario from "./scenario.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(here, "..", "..", "public");
@@ -121,6 +122,20 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
       apiKey: str(body["apiKey"]),
     });
     return json(res, 200, { ok: true });
+  }
+
+  // ---- Мастер сценария ----
+  if (path === "/api/admin/scenario/check" && m === "POST") return json(res, 200, await scenario.check(pool, body as Partial<scenario.ScenarioSpec>));
+  if (path === "/api/admin/scenario/apply" && m === "POST") {
+    const b = body as Record<string, unknown>;
+    return json(res, 200, await scenario.apply(pool, {
+      kind: (str(b["kind"]) || "browser-read") as scenario.ScenarioKind,
+      owner: str(b["owner"]) || "internal", ownerCategory: str(b["ownerCategory"]) || "client",
+      host: str(b["host"]), methods: arr(b["methods"]), paths: arr(b["paths"]),
+      sender: str(b["sender"]) || "cli:operator", lease: Number(b["lease"] ?? 1800),
+      approval: Boolean(b["approval"]), typeName: str(b["typeName"]),
+      keywords: str(b["keywords"]), clarify: str(b["clarify"]), dodTemplate: str(b["dodTemplate"]),
+    }));
   }
 
   // ---- Ассистент админки ----
