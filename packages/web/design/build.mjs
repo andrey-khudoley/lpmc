@@ -58,6 +58,14 @@ html = html.replace(/(<script[^>]*\bdata-dc-script\b[^>]*>)([\s\S]*?)(<\/script>
   (m, open, body, close) => open + body + "\n/* --- live bridge --- */\n" + bridge + "\n" + close);
 
 writeFileSync(join(pub, "index.html"), html);
+
+// 3) Мобильное приложение — отдельный интерфейс (не адаптация десктопа).
+//    Своя разметка и логика поверх тех же API; кладём в public/m/.
+const mob = join(here, "..", "mobile");
+mkdirSync(join(pub, "m"), { recursive: true });
+copyFileSync(join(mob, "index.html"), join(pub, "m", "index.html"));
+copyFileSync(join(mob, "app.js"), join(pub, "m", "app.js"));
+
 copyFileSync(join(here, "support.js"), join(pub, "support.js"));
 copyFileSync(join(nm, "react", "umd", "react.production.min.js"), join(pub, "react.production.min.js"));
 copyFileSync(join(nm, "react-dom", "umd", "react-dom.production.min.js"), join(pub, "react-dom.production.min.js"));

@@ -32,9 +32,22 @@ async function readBody(req: http.IncomingMessage): Promise<Record<string, unkno
   try { return JSON.parse(s) as Record<string, unknown>; } catch { return {}; }
 }
 
+/**
+ * Телефон получает СВОЁ приложение (public/m), а не адаптированный десктоп:
+ * интерфейсы разделены, поэтому раскладка каждого делается под своё устройство.
+ * Принудительный выбор — /m (мобильный) и /?desktop=1 (десктопный).
+ */
+const MOBILE_UA = /Android|iPhone|iPod|Windows Phone|webOS|BlackBerry|Opera Mini|Mobile Safari/i;
+function wantsMobile(req: http.IncomingMessage, url: string): boolean {
+  if (url.startsWith("/m")) return true;
+  if (/[?&]desktop=1/.test(req.url ?? "")) return false;
+  return MOBILE_UA.test(req.headers["user-agent"] ?? "") && !/iPad|Tablet/i.test(req.headers["user-agent"] ?? "");
+}
+
 async function serveStatic(res: http.ServerResponse, path: string): Promise<void> {
   // Только файлы из PUBLIC; путь нормализуется, выход за пределы запрещён.
-  const rel = normalize(path === "/" ? "/index.html" : path).replace(/^(\.\.[/\\])+/, "");
+  const rel = normalize(path === "/" ? "/index.html" : path === "/m" || path === "/m/" ? "/m/index.html" : path)
+    .replace(/^(\.\.[/\\])+/, "");
   const file = join(PUBLIC, rel);
   if (!file.startsWith(PUBLIC)) { res.writeHead(403); res.end(); return; }
   try {
@@ -143,7 +156,13 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
 
 const server = http.createServer((req, res) => {
   const url = (req.url ?? "/").split("?")[0]!;
-  const p = url.startsWith("/api/") || url === "/api" ? url : url;
+  // Мобильное приложение живёт в каталоге m/: адрес обязан оканчиваться слэшем,
+  // иначе относительный app.js уедет на уровень выше и вернёт десктопный HTML.
+  // Редирект относительный — сохраняет префикс обратного прокси (/lpmc/).
+  if (url === "/m" || (url === "/" && wantsMobile(req, url))) {
+    res.writeHead(302, { Location: "m/" }); res.end(); return;
+  }
+  const p = url;
   (p.startsWith("/api") ? api(req, res, p) : serveStatic(res, p))
     .catch((e: unknown) => json(res, 500, { error: e instanceof Error ? e.message : String(e) }));
 });

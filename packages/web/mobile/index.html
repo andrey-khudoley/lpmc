@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0B0A11">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LPMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Мобильное приложение LPMC — отдельный интерфейс, не адаптация десктопа.
+   Паттерны родные для телефона: нижние вкладки, стек экранов с возвратом,
+   листы снизу для форм, крупные цели нажатия, единственная вертикальная
+   прокрутка. Данные — те же реальные API, что у десктопной панели. */
+:root {
+  --bg:#0B0A11; --bg-2:#0E0D15; --surface:#13111B; --surface-2:#191726;
+  --line:rgba(188,180,255,0.10); --line-2:rgba(188,180,255,0.20);
+  --fg:#ECEAF2; --fg2:#A7A3BC; --fg3:#6F6B87;
+  --accent:#CC7065; --accent-soft:rgba(204,112,101,0.12); --accent-line:rgba(204,112,101,0.40);
+  --accent-fill:#E9E7F2; --accent-fill-fg:#141021;
+  --ok:#6FBF9B; --danger:#D2707C; --warn:#D9A86A;
+  --top: env(safe-area-inset-top, 0px); --bot: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { margin:0; padding:0; background:var(--bg); color:var(--fg);
+  font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; overscroll-behavior-y:none; }
+body { padding-top:calc(52px + var(--top)); padding-bottom:calc(60px + var(--bot)); }
+.mono { font-family:'JetBrains Mono',monospace; }
+button, input, select, textarea { font:inherit; color:inherit; }
+input, select, textarea { font-size:16px; }
+
+/* --- Верхняя панель --- */
+.appbar { position:fixed; top:0; left:0; right:0; z-index:50; height:calc(52px + var(--top));
+  padding:var(--top) 8px 0; display:flex; align-items:center; gap:6px;
+  background:rgba(11,10,17,.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+.appbar h1 { flex:1; margin:0; font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.iconbtn { flex:none; width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+  background:none; border:none; color:var(--fg2); font-size:22px; }
+.iconbtn:active { color:var(--fg); }
+.abact { flex:none; padding:9px 13px; font-size:13px; font-weight:600; border:none;
+  background:var(--accent-fill); color:var(--accent-fill-fg); }
+
+/* --- Нижние вкладки --- */
+.tabs { position:fixed; left:0; right:0; bottom:0; z-index:50; display:grid; grid-template-columns:repeat(3,1fr);
+  background:rgba(14,13,21,.96); backdrop-filter:blur(12px); border-top:1px solid var(--line);
+  padding-bottom:var(--bot); }
+.tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  height:58px; background:none; border:none; color:var(--fg3); font-size:11px; letter-spacing:.02em; }
+.tab .ic { display:flex; align-items:center; justify-content:center; height:20px; }
+.tab.on { color:var(--accent); }
+.tab .badge { position:absolute; transform:translate(16px,-14px); background:var(--accent);
+  color:#1B0F0E; font-size:9px; font-weight:700; padding:1px 5px; }
+
+/* --- Экраны --- */
+.screen { padding:12px 0 24px; animation:in .18s ease-out; }
+@keyframes in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.pad { padding:0 14px; }
+.muted { color:var(--fg2); }
+.dim { color:var(--fg3); }
+.empty { padding:56px 24px; text-align:center; color:var(--fg2); font-size:14px; line-height:1.6; }
+.sec { padding:16px 14px 6px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--fg3); }
+
+/* --- Карточки --- */
+.card { margin:0 12px 8px; padding:14px; background:var(--surface); border:1px solid var(--line);
+  display:flex; flex-direction:column; gap:8px; }
+.card:active { background:var(--surface-2); }
+.card h3 { margin:0; font-size:15.5px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+.row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.chip { display:inline-flex; align-items:center; padding:3px 8px; font-family:'JetBrains Mono',monospace;
+  font-size:10.5px; letter-spacing:.04em; border:1px solid currentColor; white-space:nowrap; }
+.chip.ok { color:var(--ok); } .chip.warn { color:var(--warn); } .chip.dan { color:var(--danger); }
+.chip.dim { color:var(--fg3); } .chip.acc { color:var(--accent); background:var(--accent-soft); }
+.kv { display:flex; gap:10px; font-size:13px; }
+.kv b { flex:none; width:96px; font-weight:400; color:var(--fg3); font-family:'JetBrains Mono',monospace; font-size:11px; }
+.kv span { flex:1; overflow-wrap:anywhere; }
+
+/* --- Кнопки --- */
+.btn { display:block; width:100%; padding:14px; border:none; font-size:15px; font-weight:600;
+  background:var(--accent-fill); color:var(--accent-fill-fg); }
+.btn.ghost { background:none; border:1px solid var(--line-2); color:var(--fg2); }
+.btn.dan { background:none; border:1px solid var(--danger); color:var(--danger); }
+.btn:disabled { opacity:.45; }
+.btnrow { display:flex; gap:8px; padding:12px 12px 0; }
+.btnrow .btn { flex:1; }
+.link { color:var(--accent); border-bottom:1px dashed var(--accent-line); padding-bottom:1px; }
+
+/* --- Ленты фильтров/разделов --- */
+.strip { display:flex; gap:6px; overflow-x:auto; padding:10px 12px; scrollbar-width:none; }
+.strip::-webkit-scrollbar { display:none; }
+.strip button { flex:none; padding:8px 13px; background:var(--surface); border:1px solid var(--line-2);
+  color:var(--fg2); font-size:13px; white-space:nowrap; }
+.strip button.on { background:var(--accent-soft); border-color:var(--accent-line); color:var(--accent); }
+
+/* --- Чат --- */
+.chat { display:flex; flex-direction:column; gap:14px; padding:14px 14px 8px; }
+.msg { display:flex; flex-direction:column; gap:4px; max-width:88%; }
+.msg .who { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.1em; color:var(--fg3); }
+.msg.you { align-self:flex-end; align-items:flex-end; }
+.msg.you .bub { background:var(--surface-2); border:1px solid var(--line-2); padding:10px 13px; }
+.msg.lina .who { color:var(--accent); }
+.msg.lina .bub { font-size:14.5px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; }
+.msg.note { align-self:stretch; max-width:100%; }
+.msg.note .bub { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--fg3); line-height:1.6; white-space:pre-line; }
+.msg .bub { overflow-wrap:anywhere; }
+.qcard { margin:0 14px; border:1px solid var(--accent-line); background:var(--accent-soft); padding:12px 13px;
+  display:flex; flex-direction:column; gap:8px; }
+.qcard .q { font-size:14px; line-height:1.55; white-space:pre-line; }
+.result { margin:0 14px; border:1px solid var(--line-2); background:var(--surface); }
+.result .rh { padding:10px 13px; border-bottom:1px solid var(--line); background:var(--surface-2);
+  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ok); }
+.result .rb { padding:13px; font-size:14px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; }
+
+/* --- Композер (прилипает над вкладками) --- */
+.composer { position:fixed; left:0; right:0; bottom:calc(58px + var(--bot)); z-index:40;
+  display:flex; gap:8px; padding:10px 12px; background:rgba(14,13,21,.96); backdrop-filter:blur(12px);
+  border-top:1px solid var(--line); }
+.composer input { flex:1; min-width:0; padding:12px 13px; background:var(--surface);
+  border:1px solid var(--line-2); outline:none; }
+.composer input:focus { border-color:var(--accent-line); }
+.composer button { flex:none; padding:0 16px; border:none; background:var(--accent-fill); color:var(--accent-fill-fg); font-weight:600; }
+.composer button:disabled { background:var(--surface-2); color:var(--fg3); }
+.haschat { padding-bottom:calc(126px + var(--bot)); }
+
+/* --- Лист снизу (формы) --- */
+.sheetwrap { position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; }
+.sheet { width:100%; max-height:92vh; overflow-y:auto; background:var(--bg-2); border-top:1px solid var(--accent-line);
+  padding-bottom:calc(16px + var(--bot)); animation:up .22s ease-out; }
+@keyframes up { from { transform:translateY(100%); } to { transform:none; } }
+.sheet .sh { position:sticky; top:0; background:var(--bg-2); padding:14px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px; }
+.sheet .sh h2 { flex:1; margin:0; font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:600; }
+.field { padding:12px 14px 0; display:flex; flex-direction:column; gap:6px; }
+.field label { font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--fg3); }
+.field input, .field select, .field textarea { width:100%; padding:12px 13px; background:var(--surface);
+  border:1px solid var(--line-2); outline:none; }
+.field .hint { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--fg3); line-height:1.5; }
+.field .err { color:var(--danger); font-size:12px; }
+.opts { display:flex; gap:6px; flex-wrap:wrap; }
+.opts button { padding:9px 12px; background:var(--surface); border:1px solid var(--line-2); color:var(--fg2); font-size:13px; }
+.opts button.on { background:var(--accent-soft); border-color:var(--accent-line); color:var(--accent); }
+
+/* --- Тост --- */
+.toast { position:fixed; left:12px; right:12px; bottom:calc(72px + var(--bot)); z-index:95;
+  background:var(--surface); border:1px solid var(--accent-line); padding:12px 14px;
+  font-size:13.5px; line-height:1.5; animation:in .2s ease-out; overflow-wrap:anywhere; }
+.toast b { display:block; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--accent); margin-bottom:3px; }
+.spin { display:block; margin:40px auto; width:22px; height:22px; border:2px solid var(--line-2);
+  border-top-color:var(--accent); border-radius:50%; animation:sp .7s linear infinite; }
+@keyframes sp { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="app.js"></script>
+</body>
+</html>
