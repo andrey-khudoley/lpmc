@@ -18,6 +18,33 @@ html = html.replace('<div style="height:54px;', '<div data-mob="topnav" style="h
 // Многословные части привилегированного баннера — скрываем на телефоне.
 html = html.replace('<span style="color:var(--fg2);">оператор ', '<span data-mob="privinfo" style="color:var(--fg2);">оператор ');
 html = html.replace('<span style="color:var(--fg2);">сессия оператора', '<span data-mob="privinfo" style="color:var(--fg2);">сессия оператора');
+
+// Переключатель зон — на телефоне это нижняя навигация под большой палец.
+html = html.replace('<div style="display:flex;gap:2px;padding:3px;border:1px solid var(--line);background:var(--surface);">',
+  '<div data-mob="zonetabs" style="display:flex;gap:2px;padding:3px;border:1px solid var(--line);background:var(--surface);">');
+// Подпись бренда и индикатор потока — вторичны, на узком экране убираем.
+html = html.replace('<span style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--fg3);text-transform:uppercase;">lina · pact · mita · cita</span>',
+  '<span data-role="brandsub" style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--fg3);text-transform:uppercase;">lina · pact · mita · cita</span>');
+// Полоса фильтров списка задач — одна прокручиваемая лента вместо трёх рядов.
+html = html.replace(/<div style="(flex:none;border-bottom:1px solid var\(--line\);padding:10px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var\(--bg\);)"/g,
+  '<div data-mob="filters" style="$1"');
+// Полоса вкладок раздела («Разрешённые эндпоинты / Необратимость / Правила»):
+// на телефоне не влезает — прокручиваем её, а не всю страницу.
+html = html.replace('<div style="display:flex;gap:2px;border:1px solid var(--line);background:var(--surface);padding:3px;align-self:flex-start;">',
+  '<div data-mob="tabs" style="display:flex;gap:2px;border:1px solid var(--line);background:var(--surface);padding:3px;align-self:flex-start;">');
+// Шапки таблиц (ряд подписей колонок) — в карточном виде не нужны.
+html = html.replace(/<div style="([^"]*text-transform:uppercase[^"]*)">(\s*)<span data-role="cell">/g,
+  '<div data-mob="thead" style="$1">$2<span data-role="cell">');
+// Строки таблиц — на телефоне становятся карточками.
+html = html.replace(/<div((?:\s+[a-zA-Z-]+="[^"]*")*)\s+style="\{\{ (\w+)\.rowStyle \}\}"/g,
+  '<div$1 data-mob="row" style="{{ $2.rowStyle }}"');
+// Декоративные «крошки» экранов (01 —— СПИСОК ЗАДАЧ): на телефоне только шум.
+html = html.replace(/<span style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:\.16em;text-transform:uppercase;color:var\(--fg3\);">/g,
+  '<span data-mob="eyebrow" style="display:flex;align-items:center;gap:9px;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);">');
+// Мастер и карточка задачи — на телефоне во весь экран.
+html = html.replace('<div style="{{ wizard.panelStyle }}"', '<div data-mob="wizard" style="{{ wizard.panelStyle }}"');
+html = html.replace('<div data-screen-label="01 Задача · карточка"', '<div data-mob="cardmodal" data-screen-label="01 Задача · карточка"');
+
 html = html.replace("</head>", "<style>\n" + mobile + "\n</style>\n</head>");
 
 // 1) React перед support.js

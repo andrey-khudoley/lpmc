@@ -1,49 +1,252 @@
-/* Мобильная адаптация LPMC. Дополняет базовые брейкпоинты макета (до 820px):
-   ниже них макет не рассчитан. Телефоны и узкие планшеты. */
+/* Мобильный интерфейс LPMC (mobile-first по существу: на телефоне перестраиваем
+   раскладку, а не ужимаем десктоп).
 
-@media (max-width: 680px) {
-  /* Верхняя навигация: у макета фиксированная высота и overflow:hidden — на узком
-     экране правый таб обрезается. Разрешаем перенос вместо обрезки. */
+   Принципы:
+   — Навигация зон уходит вниз, под большой палец, и всегда видна.
+   — Ни одной горизонтальной прокрутки в данных: таблицы становятся карточками.
+   — Разделы админки — лента с НАЗВАНИЯМИ (номера без слов бесполезны).
+   — Ассистент раздела доступен (лежит под таблицей), а не спрятан.
+   — Цели нажатия ≥ 40px, поля ввода 16px (иначе iOS зумит форму).
+   — Декоративные надписи макета («01 —— СПИСОК ЗАДАЧ») на телефоне скрыты:
+     они съедают первый экран, ничего не сообщая. */
+
+@media (max-width: 820px) {
+  html, body { font-size: 14px; }
+  body { overscroll-behavior-y: none; }
+
+  /* ---- Верхняя строка: только логотип и роль, компактно и липко ---- */
   [data-mob="topnav"] {
     height: auto !important;
+    min-height: 0 !important;
     overflow: visible !important;
     flex-wrap: wrap !important;
     padding: 8px 12px !important;
-    gap: 8px 12px !important;
+    gap: 6px 10px !important;
+    position: sticky !important;
+    top: 0; z-index: 60;
+  }
+  [data-mob="topnav"] [data-role="brandsub"],
+  [data-mob="topnav"] [data-role="livedot"] { display: none !important; }
+
+  /* ---- Навигация зон — нижняя панель ---- */
+  [data-mob="zonetabs"] {
+    position: fixed !important;
+    left: 0; right: 0; bottom: 0;
+    z-index: 90;
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-top: 1px solid var(--line) !important;
+    background: var(--bg-2) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+  }
+  [data-mob="zonetabs"] > div {
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 12px 8px !important;
+    min-height: 52px;
+    font-size: 13px !important;
+  }
+  [data-role="tabsub"] { display: none !important; }
+  /* Нижняя панель перекрывает конец страницы — освобождаем место. */
+  [data-role="frame"] { padding-bottom: 56px !important; }
+
+  /* ---- Общая раскладка: колонка вместо трёх столбцов ---- */
+  [data-role="frame"] { flex-direction: column !important; }
+
+  /* Единая прокрутка страницы. На десктопе макет держит height:100vh и прокручивает
+     каждую колонку отдельно; на телефоне вложенные скроллы — главный источник
+     «ужасного» ощущения: контент зажат в узкой полоске между лентой разделов и
+     панелью ассистента. Отпускаем высоту и скроллим документ целиком. */
+  html body div[data-zone] {
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+  }
+  html body [data-role="frame"],
+  html body [data-role="frame"] > div,
+  html body [data-role="tasksbody"],
+  html body [data-role="tasksbody"] > div {
+    overflow: visible !important;
+    min-height: 0 !important;
   }
 
-  /* Диалог задачи: на телефоне — полноэкранный оверлей (у макета он 380px).
-     Закрывается кнопкой ✕ в шапке чата (hideChat) — возврат к списку. */
+  /* Заголовки-«крошки» макета: на телефоне это шум в первом экране. */
+  [data-mob="eyebrow"] { display: none !important; }
+
+  /* ---- Диалог Лины / задачи: полноэкранный лист ---- */
   [data-role="chatpanel"] {
     position: fixed !important;
-    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    inset: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     z-index: 100 !important;
-    box-shadow: none !important;
+    border-left: none !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
   }
 
-  /* Таблица задач шире экрана (grid min-width:760px) — горизонтальная прокрутка. */
-  [data-role="tasksbody"] {
+  /* ---- Таблицы → карточки. Ни одной горизонтальной прокрутки ---- */
+  [data-role="tasksbody"] { overflow-x: visible !important; }
+  [data-role="tasksbody"] > div,
+  [data-role="tasksbody"] div[style*="overflow-x"] { overflow-x: visible !important; }
+  /* Строки таблиц распускаем в карточки: заголовок сверху, остальное —
+     чипами в одну переносимую строку (так карточка вдвое ниже и сканируется). */
+  [data-mob="row"] {
+    min-width: 0 !important;
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 14px !important;
+  }
+  [data-mob="row"] > [data-role="cell"]:first-child { flex: 1 0 100%; }
+  /* Заголовок в карточке переносится целиком, а не обрезается многоточием. */
+  [data-mob="row"] [data-role="cell"] span[style*="ellipsis"],
+  [data-mob="row"] [data-role="cell"] span[style*="nowrap"] {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+  /* Шапка таблицы в карточном виде не нужна. */
+  [data-mob="thead"] { display: none !important; }
+  /* Контейнеры таблиц: убрать принудительную ширину и прокрутку. */
+  div[style*="min-width:760px"] { min-width: 0 !important; }
+  div[style*="overflow-x:auto"] { overflow-x: visible !important; }
+  [data-role="cell"] {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0 !important;
+    min-width: 0;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+  /* Первая строка карточки — заголовок сущности. */
+  [data-mob="row"] > [data-role="cell"]:first-child {
+    font-size: 15px !important;
+    font-weight: 600;
+    padding-bottom: 2px !important;
+  }
+  /* Действия строки («изменить/удалить», «в архив») — отдельной строкой, крупные. */
+  [data-mob="row"] > [data-role="cell"]:last-child { flex: 1 0 100%; justify-content: flex-start !important; gap: 20px; padding-top: 6px !important; }
+  [data-role="cell"] span[style*="dashed"] { padding: 6px 0 !important; font-size: 12px !important; }
+
+  /* ---- Фильтры: одна прокручиваемая лента вместо трёх рядов ---- */
+  [data-mob="filters"] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px !important;
+    padding: 8px 12px !important;
+  }
+  [data-mob="filters"]::-webkit-scrollbar { display: none; }
+  [data-mob="filters"] > * { flex: none !important; }
+
+  /* ---- Админка: разделы лентой с названиями ----
+     Селекторы с префиксом html body: собственный блок макета лежит ниже нашего
+     и тоже помечен !important (adminnav 60px, navlabel display:none) — при равной
+     важности решает специфичность, поэтому она у нас выше. */
+  html body [data-role="adminnav"] {
+    width: 100% !important;
+    height: auto !important;
+    flex: none !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--line) !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: sticky; top: 44px; z-index: 55;
+  }
+  /* Лента разделов — единственное место, где горизонтальная прокрутка уместна.
+     Правило единого скролла выше (frame > div) специфичнее, поэтому возвращаем
+     её ещё более точным селектором, иначе страница едет вбок целиком. */
+  html body [data-role="frame"] > [data-role="adminnav"] { overflow-x: auto !important; overflow-y: hidden !important; }
+  html body [data-role="adminnav"]::-webkit-scrollbar { display: none; }
+  html body [data-role="adminnav"] > div { display: flex !important; flex-direction: row !important; gap: 4px !important; padding: 6px 8px !important; }
+  html body [data-role="adminnav"] > div > div {
+    flex: none !important;
+    white-space: nowrap;
+    min-height: 40px;
+    padding: 8px 12px !important;
+    box-shadow: none !important;
+    border: 1px solid var(--line-2);
+  }
+  /* Название раздела на телефоне обязательно: номера «3.1» ни о чём не говорят. */
+  html body [data-role="navlabel"] { display: inline !important; }
+  /* Подпись «в следующей итерации» в ленте разделов лишняя. */
+  html body [data-role="adminnav"] > [data-role="navlabel"] { display: none !important; }
+
+  /* ---- Ассистент раздела: не прячем, кладём под таблицу ---- */
+  [data-role="assistpanel"] {
+    width: 100% !important;
+    flex: none !important;
+    border-left: none !important;
+    border-top: 1px solid var(--line) !important;
+    max-height: none;
   }
 
-  /* Админка: узкая иконочная навигация и один столбец. */
-  [data-role="adminnav"] { width: 52px !important; }
-  /* Ассистент админки — сбоку места нет; на телефоне прячем (сущности заводятся
-     мастерами), панель не должна выдавливать таблицы. */
-  [data-role="assistpanel"] { display: none !important; }
+  /* ---- Двухколоночные блоки (подтверждения и т.п.) ---- */
   [data-role="twocol"] { grid-template-columns: 1fr !important; }
 
-  /* Привилегированный баннер: на телефоне только суть + кнопка выхода,
-     многословные части (оператор/права/сессия) скрыты. */
+  /* ---- Привилегированный баннер: суть + выход ---- */
   [data-mob="privinfo"] { display: none !important; }
-  [data-role="hatch"] { flex-wrap: wrap !important; padding: 7px 12px !important; gap: 10px !important; }
+  [data-role="hatch"] { flex-wrap: wrap !important; padding: 8px 12px !important; gap: 8px !important; }
+
+  /* ---- Вкладки раздела: прокручиваются сами, не растягивая страницу ---- */
+  [data-mob="tabs"] {
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    align-self: stretch !important;
+  }
+  [data-mob="tabs"]::-webkit-scrollbar { display: none; }
+  [data-mob="tabs"] > span { flex: none; white-space: nowrap; }
+
+  /* ---- Формы: без зума на iOS, крупные цели ---- */
+  input, select, textarea { font-size: 16px !important; min-height: 42px; }
+  /* Инлайновые min-width (напр. 240px у выбора модели) распирают экран. */
+  html body input, html body select, html body textarea { min-width: 0 !important; max-width: 100%; }
+  /* В карточках поле занимает свою строку целиком: иначе рядом с подписью и
+     кнопкой на 390px остаётся полоска, в которой не виден вводимый текст. */
+  [data-mob="row"] input, [data-mob="row"] select { flex: 1 0 100% !important; }
+
+  /* Карточки провайдеров модели: внутренние ряды (заголовок, модель, ключ) —
+     обычные flex без переноса; на 390px они распирают страницу. */
+  [data-mob="row"] div, [data-role="assistpanel"] div { flex-wrap: wrap; min-width: 0; }
+  /* Ничто внутри карточки не шире самой карточки: длинные подписи и неразрывные
+     идентификаторы (id запуска, слаги, ключи) переносим, а не расширяем экран. */
+  [data-mob="row"], [data-role="assistpanel"], div[data-screen-label] { overflow-wrap: anywhere; }
+  [data-mob="row"] > *, [data-mob="row"] > * > *,
+  [data-role="assistpanel"] > *, [data-role="assistpanel"] > * > * { max-width: 100% !important; }
+  /* Длинные подписи-чипы (напр. «вызов исполняется на машине · логин активен»)
+     нарисованы с nowrap — на телефоне переносим. */
+  [data-mob="row"] span, [data-role="assistpanel"] span { white-space: normal !important; }
+  select { appearance: none; -webkit-appearance: none; background-image: none; }
+  /* Кликабельные «span-кнопки» макета. */
+  span[onclick], span[style*="cursor:pointer"] { -webkit-tap-highlight-color: transparent; }
+
+  /* ---- Мастера (drawer) — на весь экран ---- */
+  [data-mob="wizard"] { width: 100% !important; max-width: 100% !important; border-left: none !important; }
+
+  /* ---- Модальная карточка задачи ---- */
+  [data-mob="cardmodal"] { width: 100% !important; max-width: 100% !important; max-height: 92% !important; }
+
+  /* Уменьшаем внутренние отступы экранов: на 390px 24px по бокам — это роскошь. */
+  div[data-screen-label] { padding-left: 0 !important; padding-right: 0 !important; }
+  div[data-screen-label] > * { padding-left: 14px; padding-right: 14px; }
+  div[data-screen-label] > div[style*="border:1px solid"] { margin-left: 12px; margin-right: 12px; padding-left: 0; padding-right: 0; }
 }
 
 @media (max-width: 430px) {
-  html, body { font-size: 12px; }
-  /* Тосты и модалки — не шире экрана. */
-  [data-mob="topnav"] { padding: 8px 10px !important; gap: 6px 10px !important; }
+  [data-mob="topnav"] { padding: 7px 10px !important; }
+  h1, [style*="font-size:22px"] { font-size: 19px !important; }
 }
