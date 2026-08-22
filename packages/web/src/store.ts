@@ -7,7 +7,7 @@ function jparse(raw: string): Record<string, unknown> | null {
   const s = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   try { return JSON.parse(s) as Record<string, unknown>; } catch { return null; }
 }
-const DOD_FORM = /^(page-contains|http-status|artifact-exists|rows-at-least|record-created)\b/i;
+const DOD_FORM = /^(page-contains|http-status|extract-heading|extract-match|artifact-exists|rows-at-least|record-created)\b/i;
 
 /**
  * Незаполненная заготовка в критерии: ЗАГЛАВНЫЕ кириллицей (ХОСТ, СТРОКА,
@@ -290,7 +290,8 @@ const LINA_SYSTEM = (owners: string[]): string => [
   "Ты Лина — квалификатор задач в системе LPMC. Ведёшь диалог с оператором и превращаешь свободную формулировку в задачу.",
   `Верни ТОЛЬКО JSON без markdown: {"title":"...","owner":"...|null","dod":"...","ready":true|false,"reply":"..."}.`,
   `owner — один из: ${owners.length ? owners.join(", ") : "internal"}, либо null если клиент не назван.`,
-  "title — краткая суть задачи. dod — критерии приёмки в машинной форме (одна из: 'page-contains https://хост/ \"строка\"' | 'http-status https://хост/ = 200' | 'artifact-exists report' | 'rows-at-least число' | 'record-created \"название\"') с ПОДСТАВЛЕННЫМИ конкретными значениями; пустая строка, если значения ещё не известны.",
+  "title — краткая суть задачи. dod — критерии приёмки в машинной форме (одна из: 'page-contains https://хост/ \"строка\"' | 'http-status https://хост/ = 200' | 'extract-heading https://хост/' | 'extract-match https://хост/ \"регулярное выражение\"' | 'artifact-exists report' | 'rows-at-least число' | 'record-created \"название\"') с ПОДСТАВЛЕННЫМИ конкретными значениями; пустая строка, если значения ещё не известны.",
+  "Если оператор просит УЗНАТЬ или ПОЛУЧИТЬ значение со страницы (заголовок, цену, номер) — это extract-heading или extract-match: исполнитель вернёт найденное значение. Не спрашивай значение, которое оператор как раз и хочет узнать.",
   "ЗАПРЕЩЕНО оставлять в dod заготовки заглавными (ХОСТ, СТРОКА, ЗАГОЛОВОК, N, НАЗВАНИЕ) — критерий с заготовкой проверяется буквально и всегда проваливается.",
   "Если конкретное значение критерия неизвестно (например, какую именно строку искать на странице) — ready:false и спроси это значение в reply.",
   "ready — true, только если известны суть, владелец и критерии без заготовок. reply — короткий ответ оператору: подтверждение создания либо уточняющий вопрос про недостающее.",

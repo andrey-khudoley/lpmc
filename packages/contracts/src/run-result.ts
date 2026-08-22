@@ -88,6 +88,13 @@ export interface DodEntry {
   outcome: DodOutcome;
   method: string;
   artifact_ref: string | null;
+  /**
+   * Значение, извлечённое со страницы формами extract-* (заголовок, совпадение
+   * регулярного выражения). Для проверяющих форм — null: они отвечают «да/нет»,
+   * а не возвращают данные. Значение недоверенное (пришло из внешней страницы)
+   * и потому передаётся как данные, а не как указание.
+   */
+  value?: string | null;
 }
 
 export interface RunResult {

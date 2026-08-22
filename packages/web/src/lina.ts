@@ -133,7 +133,7 @@ export function questionFor(field: "owner" | "dod"): { field: string; text: stri
     field: "dod", placeholder: 'например: page-contains https://example.com/ "Example Domain"',
     text: [
       "По каким проверяемым критериям считать работу выполненной? Исполнитель проверяет закрытые формы (можно несколько через «;»):",
-      '• page-contains https://хост/ "строка" — на странице есть строка',
+      '• page-contains https://хост/ "строка" — на странице есть строка\n• extract-heading https://хост/ — вернуть первый заголовок страницы\n• extract-match https://хост/ "регулярное выражение" — вернуть первое совпадение',
       "• http-status https://хост/ = 200 — код ответа страницы",
       "• artifact-exists report — собран отчёт (тело страницы как вложение)",
       "• rows-at-least N — собрано не меньше N записей (для API-исполнителя)",

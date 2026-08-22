@@ -31,7 +31,14 @@ export type Check =
   // Запись создана во внешней системе. Форма служит двум целям сразу: она
   // объявляет НАМЕРЕНИЕ совершить необратимое действие (и потому запускает
   // остановку на подтверждение) и она же проверяется наблюдением после него.
-  | { kind: "record-created"; title: string };
+  | { kind: "record-created"; title: string }
+  // Извлечение значения со страницы. Отличается от проверяющих форм тем, что
+  // ВОЗВРАЩАЕТ данные, а не отвечает «да/нет»: цель «узнать заголовок» иначе не
+  // выражается — заранее известной строки для сверки просто нет.
+  // Проверка при этом остаётся фактической: пункт считается выполненным, только
+  // если значение действительно найдено отдельным наблюдением.
+  | { kind: "extract-heading"; url: string }
+  | { kind: "extract-match"; url: string; pattern: string };
 
 /**
  * Разбор пункта DoD в проверку.
@@ -52,6 +59,10 @@ export function parseCheck(item: string): Check | null {
   if (m) return { kind: "rows-at-least", count: Number(m[1]) };
   m = /^record-created\s+"(.+)"$/.exec(line);
   if (m) return { kind: "record-created", title: m[1]! };
+  m = /^extract-heading\s+(\S+)$/.exec(line);
+  if (m) return { kind: "extract-heading", url: m[1]! };
+  m = /^extract-match\s+(\S+)\s+"(.+)"$/.exec(line);
+  if (m) return { kind: "extract-match", url: m[1]!, pattern: m[2]! };
   return null;
 }
 
@@ -59,6 +70,8 @@ export interface Observation {
   outcome: DodOutcome;
   method: string;
   artifactRef: string | null;
+  /** Значение, добытое формами extract-*; у проверяющих форм отсутствует. */
+  value?: string | null;
 }
 
 /** Наблюдатель: выполняет ОТДЕЛЬНЫЙ запрос состояния и возвращает исход. */
@@ -86,6 +99,7 @@ export async function verifyDod(items: readonly string[], observe: Observer): Pr
     const observed = await observe(check);
     entries.push({
       item, outcome: observed.outcome, method: observed.method, artifact_ref: observed.artifactRef,
+      ...(observed.value === undefined ? {} : { value: observed.value }),
     });
   }
   return {

@@ -62,6 +62,41 @@ export class BrowserSession {
     }
   }
 
+  /**
+   * Извлечение значения со страницы. Содержимое остаётся недоверенным: значение
+   * возвращается как ДАННЫЕ (и дальше маскируется и передаётся человеку), оно
+   * никогда не становится указанием исполнителю.
+   *
+   * `what.kind === "heading"` — первый непустой заголовок h1…h6 (а если их нет,
+   * заголовок документа); `"match"` — первое совпадение регулярного выражения по
+   * тексту страницы. Регулярное выражение исполняется в Node, а не в странице:
+   * так недоверенная страница не влияет на разбор.
+   */
+  async extract(url: string, what: { kind: "heading" } | { kind: "match"; pattern: string },
+    timeoutMs = 20000): Promise<{ observation: PageObservation; value: string | null }> {
+    const page = await this.newPage();
+    try {
+      const response = await page.goto(url, { timeout: timeoutMs, waitUntil: "domcontentloaded" });
+      const title = await page.title();
+      const text = (await page.locator("body").innerText()).slice(0, 20000);
+      const observation: PageObservation = { url: page.url(), status: response?.status() ?? null, title, text };
+      let value: string | null = null;
+      if (what.kind === "heading") {
+        const heads = await page.$$eval("h1,h2,h3,h4,h5,h6",
+          (els) => els.map((e) => (e.textContent ?? "").trim()).filter((s) => s !== ""));
+        value = heads[0] ?? (title.trim() !== "" ? title.trim() : null);
+      } else {
+        let re: RegExp | null = null;
+        try { re = new RegExp(what.pattern, "m"); } catch { re = null; }
+        const m = re ? re.exec(text) : null;
+        value = m ? (m[1] ?? m[0]) : null;
+      }
+      return { observation, value: value === null ? null : value.slice(0, 500) };
+    } finally {
+      await page.close();
+    }
+  }
+
   async screenshot(url: string, timeoutMs = 20000): Promise<{ observation: PageObservation; png: Buffer }> {
     const page = await this.newPage();
     try {

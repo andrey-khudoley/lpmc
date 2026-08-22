@@ -229,6 +229,28 @@ async function main(): Promise<void> {
         if (session === null) {
           return { outcome: "not_checked" as const, method: "браузер недоступен", artifactRef: null };
         }
+        if (check.kind === "extract-heading" || check.kind === "extract-match") {
+          // Отдельное наблюдение: идём на страницу ещё раз и достаём значение.
+          // Пункт выполнен, только если значение действительно найдено.
+          try {
+            const got = await session.extract(check.url,
+              check.kind === "extract-heading" ? { kind: "heading" } : { kind: "match", pattern: check.pattern });
+            const proof = await artifacts.put(runId, "extraction", "text/markdown",
+              maskText(`# извлечение ${check.kind}\n\n${check.url}\n\nзначение: ${got.value ?? "(не найдено)"}\n\n`
+                + got.observation.text.slice(0, 2000), masks));
+            return {
+              outcome: got.value ? ("verified" as const) : ("failed" as const),
+              method: check.kind === "extract-heading"
+                ? `повторный запрос ${check.url}: первый заголовок страницы`
+                : `повторный запрос ${check.url}: поиск по образцу «${check.pattern}»`,
+              artifactRef: proof.artifactRef,
+              value: got.value === null ? null : maskText(got.value, masks),
+            };
+          } catch (e) {
+            return { outcome: "not_checked" as const, artifactRef: null, value: null,
+              method: `извлечение не выполнено: ${e instanceof Error ? e.message : String(e)}` };
+          }
+        }
         try {
           // Отдельный заход на страницу: именно «запрос защищённого состояния»,
           // а не признак того, что переход когда-то удался.
@@ -327,6 +349,10 @@ async function main(): Promise<void> {
             : status === "blocked_awaiting_human" ? `Нужна проверка человеком: ${objective}\n`
               : `Не сделано: ${objective}\n`)
         + `${result.summary}\n`
+        // Добытые значения — то, ради чего задача и ставилась («узнать заголовок»).
+        // Идут в ответ явно, а не только в артефакт: иначе человеку пришлось бы
+        // открывать вложение, чтобы увидеть единственную нужную строку.
+        + report.entries.filter((e) => e.value).map((e) => `${e.item}\n→ ${e.value}\n`).join("")
         + (artifactRefs.length > 0 ? `Приложения: ${artifactRefs.length}\n` : "")
         + (injections.length > 0
           ? "На странице встретился текст, похожий на инструкцию; он не выполнялся.\n" : "")
