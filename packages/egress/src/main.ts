@@ -14,10 +14,12 @@
  *     создании привязки, иначе внешний вызов зависел бы от доступности арбитра.
  */
 import http from "node:http";
+import { dirname, join } from "node:path";
 import { createAdminServer, listenOnSocket } from "./admin.js";
 import { Registry } from "./bindings.js";
 import { CertificateAuthority } from "./ca.js";
 import { loadConfig } from "./config.js";
+import { NodePolicy } from "./policy.js";
 import { Proxy } from "./proxy.js";
 
 function arg(name: string, fallback: string): string {
@@ -32,7 +34,11 @@ const { config, pactPublicKey } = loadConfig(configPath);
 const ca = CertificateAuthority.loadOrCreate(config.caCert, config.caKey);
 const registry = new Registry();
 
-const admin = createAdminServer(registry, pactPublicKey);
+// Снимок опубликованной политики лежит рядом с ключами прокси: каталог уже
+// принадлежит пользователю прокси, а /etc принадлежит развёртыванию.
+const policy = new NodePolicy(config.allow, join(dirname(config.caCert), "node-policy.json"));
+
+const admin = createAdminServer(registry, pactPublicKey, policy);
 listenOnSocket(admin, config.adminSocket, adminGroup || undefined);
 
 // Истёкшие привязки снимаются и их соединения рвутся, даже если отзыв не пришёл:
@@ -40,14 +46,14 @@ listenOnSocket(admin, config.adminSocket, adminGroup || undefined);
 setInterval(() => registry.expireStale(new Date()), 5000).unref();
 
 const server = http.createServer();
-new Proxy(config, registry, ca).attach(server);
+new Proxy(config, registry, ca, policy).attach(server);
 
 const [host, port] = config.listen.split(":") as [string, string];
 server.listen(Number(port), host, () => {
   console.log(
-    `прокси слушает ${config.listen}; разрешённых хостов в политике узла: ${config.allow.length}`,
+    `прокси слушает ${config.listen}; разрешённых хостов в политике узла: ${policy.current().length}`,
   );
-  if (config.allow.length === 0) {
+  if (policy.current().length === 0) {
     console.log("политика узла пуста — запрещены все внешние обращения");
   }
 });

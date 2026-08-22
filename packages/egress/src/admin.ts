@@ -12,9 +12,27 @@ import { verifyToken } from "./token.js";
  * пользователь PACT, режим 0660. Ни исполнитель, ни браузер обратиться к нему
  * не могут — а это единственный способ получить доступ во внешнюю сеть.
  */
-export function createAdminServer(reg: Registry, pactPublicKey: Buffer): http.Server {
+export function createAdminServer(reg: Registry, pactPublicKey: Buffer,
+  policy?: { apply(list: { host: string; methods: string[]; paths?: string[] }[]): { hosts: number } }): http.Server {
   return http.createServer((req, res) => {
     const url = req.url ?? "";
+    // Публикация политики узла арбитром. Право на неё выражено правами сокета
+    // (группа админ-сокета — пользователь PACT), тем же способом, что и право
+    // создавать привязки: исполнитель и браузер сюда не достучатся.
+    if (req.method === "PUT" && url === "/policy") {
+      if (!policy) { reply(res, 501, "501 публикация политики не включена"); return; }
+      readBody(req)
+        .then((body) => {
+          let parsed: { allow?: { host: string; methods: string[]; paths?: string[] }[] };
+          try { parsed = JSON.parse(body) as typeof parsed; } catch { reply(res, 400, "400 тело не JSON"); return; }
+          if (!Array.isArray(parsed.allow)) { reply(res, 400, "400 обязателен allow"); return; }
+          const r = policy.apply(parsed.allow);
+          console.log(`политика узла опубликована: хостов сверх базовых ${r.hosts}`);
+          reply(res, 200, JSON.stringify(r));
+        })
+        .catch(() => reply(res, 400, "400 тело не прочитано"));
+      return;
+    }
     if (req.method === "POST" && url === "/bindings") {
       readBody(req)
         .then((body) => createBinding(reg, pactPublicKey, body, res))

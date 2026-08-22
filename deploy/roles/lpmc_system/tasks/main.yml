@@ -2259,6 +2259,9 @@
     cmd: >-
       psql -d {{ lpmc_system_db_name }} -v ON_ERROR_STOP=1 -c
       "GRANT USAGE ON SCHEMA pact TO \"{{ lpmc_system_web_user }}\";
+       GRANT EXECUTE ON FUNCTION pact.web_policy_list(),
+         pact.web_policy_add(text, text[], text[], text), pact.web_policy_revoke(text)
+         TO \"{{ lpmc_system_web_user }}\";
        GRANT SELECT ON pact.owners, pact.owner_bindings, pact.rules, pact.egress_allow,
          pact.irreversibility, pact.secret_names, pact.session_snapshots, pact.approvals
          TO \"{{ lpmc_system_web_user }}\";

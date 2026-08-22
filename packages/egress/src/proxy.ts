@@ -20,7 +20,15 @@ export class Proxy {
     private readonly cfg: Config,
     private readonly reg: Registry,
     private readonly ca: CertificateAuthority,
+    // Политика узла спрашивается на каждом запросе, а не берётся снимком в поле:
+    // опубликованное арбитром изменение обязано действовать немедленно.
+    private readonly policy?: { current(): Config["allow"] },
   ) {}
+
+  /** Действующая граница узла: базовый перечень роли плюс опубликованный. */
+  private nodeAllow(): Config["allow"] {
+    return this.policy ? this.policy.current() : this.cfg.allow;
+  }
 
   /** Внутренний сервер разбирает запросы, идущие внутри терминированного туннеля. */
   private readonly inner = http.createServer();
@@ -59,7 +67,7 @@ export class Proxy {
    * из двух означает запрет.
    */
   private permit(b: Binding, host: string, method: string, path?: string): boolean {
-    return permits(this.cfg.allow, host, method, path) && permits(b.allow, host, method, path);
+    return permits(this.nodeAllow(), host, method, path) && permits(b.allow, host, method, path);
   }
 
   attach(server: http.Server): void {
@@ -123,7 +131,7 @@ export class Proxy {
     }
     // На этапе CONNECT метод внутренних запросов ещё неизвестен, поэтому здесь
     // проверяется только хост: он обязан быть разрешён хотя бы для одного метода.
-    if (!hostKnown(this.cfg.allow, host) || !hostKnown(b.allow, host)) {
+    if (!hostKnown(this.nodeAllow(), host) || !hostKnown(b.allow, host)) {
       this.log(b, host, "CONNECT", "-", "отказ: хост вне разрешённого набора");
       socket.end("HTTP/1.1 403 Forbidden\r\n\r\n403 хост не разрешён");
       return;

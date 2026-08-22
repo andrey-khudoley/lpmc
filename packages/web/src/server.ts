@@ -130,6 +130,9 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, path: st
   // ---- Админ ----
   if (path === "/api/admin/owners" && m === "GET") return json(res, 200, await admin.owners(pool));
   if (path === "/api/admin/services" && m === "GET") return json(res, 200, await admin.services(pool));
+  if (path === "/api/admin/node-policy" && m === "GET") return json(res, 200, await admin.nodePolicy(pool));
+  if (path === "/api/admin/node-policy" && m === "POST") return json(res, 200, await admin.addNodePolicy(pool, { host: str(body["host"]), methods: arr(body["methods"]), paths: arr(body["paths"]), note: str(body["note"]) }));
+  if (seg[0] === "api" && seg[1] === "admin" && seg[2] === "node-policy" && seg[3] && m === "DELETE") return json(res, 200, await admin.revokeNodePolicy(pool, decodeURIComponent(seg[3])));
   if (path === "/api/admin/secrets" && m === "GET") return json(res, 200, await admin.secrets(pool));
   if (path === "/api/admin/sessions" && m === "GET") return json(res, 200, await admin.sessions(pool));
   if (path === "/api/admin/approvals" && m === "GET") return json(res, 200, await admin.approvals(pool));

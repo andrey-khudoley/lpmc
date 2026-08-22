@@ -465,6 +465,45 @@ function listenOn(srv: http.Server, path: string, group: string, what: string): 
 listenOn(server, SOCKET, GROUP, "выдача учётных данных запуска");
 listenOn(modelServer, MODEL_SOCKET, MODEL_GROUP, "выдача доступа к модели");
 
+/**
+ * Публикация политики узла прокси.
+ *
+ * Арбитр — владелец политики, и он же единственный, кому открыт админ-сокет.
+ * Оператор заводит хост через панель (функция web_policy_add), а сюда изменение
+ * приходит опросом: прокси не спрашивает арбитра на каждом запросе, поэтому
+ * доставка обязана быть подтверждаемой и журналируемой, а не подразумеваемой.
+ * Опрос, а не событие: цена — секунды задержки, выигрыш — работоспособность при
+ * перезапуске любой из сторон.
+ */
+async function publishNodePolicy(): Promise<void> {
+  const r = await pool.query<{ host: string; methods: string[]; path_prefixes: string[] }>(
+    "SELECT host, methods, path_prefixes FROM node_policy WHERE revoked_at IS NULL ORDER BY host");
+  const allow = r.rows.map((x) => ({ host: x.host, methods: x.methods, paths: x.path_prefixes }));
+  const signature = JSON.stringify(allow);
+  if (signature === lastPublished) return;
+  const body = JSON.stringify({ allow });
+  const out = await new Promise<{ ok: boolean; text: string }>((resolve) => {
+    const req = http.request(
+      { socketPath: EGRESS_ADMIN, path: "/policy", method: "PUT",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ ok: (res.statusCode ?? 0) < 300, text: Buffer.concat(chunks).toString("utf8") }));
+      });
+    req.on("error", (e) => resolve({ ok: false, text: e.message }));
+    req.end(body);
+  });
+  await pool.query(
+    "INSERT INTO node_policy_publications (hosts, outcome, reason) VALUES ($1, $2, $3)",
+    [allow.map((a) => a.host), out.ok ? "PUBLISHED" : "FAILED", out.ok ? "" : out.text.slice(0, 200)]);
+  if (out.ok) { lastPublished = signature; console.log(`политика узла опубликована: ${allow.length} хостов`); }
+  else console.error(`политика узла не опубликована: ${out.text}`);
+}
+let lastPublished: string | null = null;
+void publishNodePolicy();
+setInterval(() => { void publishNodePolicy().catch((e: unknown) => console.error(String(e))); }, 5000).unref();
+
 for (const sig of ["SIGTERM", "SIGINT"] as const) {
   process.on(sig, () => {
     console.log(`получен ${sig}: останавливаемся`);

@@ -18,6 +18,31 @@ export async function owners(pool: pg.Pool): Promise<unknown> {
   return { owners: o.rows, bindings: b.rows };
 }
 
+/**
+ * Политика узла — внешняя граница, которую принуждает прокси. Веб её НЕ пишет:
+ * у него есть только право вызвать функции арбитра (SECURITY DEFINER), которые
+ * проверяют состав и ведут журнал. Арбитр же публикует политику прокси.
+ */
+export async function nodePolicy(pool: pg.Pool): Promise<unknown> {
+  try {
+    const r = await pool.query("SELECT * FROM pact.web_policy_list()");
+    return { policy: r.rows };
+  } catch { return { policy: [], error: "политика узла недоступна" }; }
+}
+export async function addNodePolicy(pool: pg.Pool, p: {
+  host: string; methods: string[]; paths: string[]; note: string;
+}): Promise<{ ok: boolean; reason?: string }> {
+  const r = await pool.query<{ r: { ok: boolean; reason?: string } }>(
+    "SELECT pact.web_policy_add($1,$2::text[],$3::text[],$4) AS r",
+    [p.host, p.methods, p.paths, p.note]);
+  return r.rows[0]!.r;
+}
+export async function revokeNodePolicy(pool: pg.Pool, host: string): Promise<{ ok: boolean; reason?: string }> {
+  const r = await pool.query<{ r: { ok: boolean; reason?: string } }>(
+    "SELECT pact.web_policy_revoke($1) AS r", [host]);
+  return r.rows[0]!.r;
+}
+
 export async function services(pool: pg.Pool): Promise<unknown> {
   const allow = await pool.query(
     `SELECT id, owner_slug AS owner, host, methods, path_prefixes AS paths, operation_type AS op, ruleset_version AS version
