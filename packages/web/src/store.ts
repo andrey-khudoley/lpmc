@@ -9,6 +9,18 @@ function jparse(raw: string): Record<string, unknown> | null {
 }
 const DOD_FORM = /^(page-contains|http-status|artifact-exists|rows-at-least|record-created)\b/i;
 
+/**
+ * Незаполненная заготовка в критерии: ЗАГЛАВНЫЕ кириллицей (ХОСТ, СТРОКА,
+ * ЗАГОЛОВОК, НАЗВАНИЕ), угловые скобки или буква N вместо числа. Такой критерий
+ * исполнитель проверяет буквально — то есть заведомо впустую.
+ */
+export function hasPlaceholder(dod: string): boolean {
+  if (/[А-ЯЁ]{3,}/.test(dod)) return true;
+  if (/<[^>]{2,}>/.test(dod)) return true;
+  if (/\brows-at-least\s+N\b/i.test(dod)) return true;
+  return false;
+}
+
 export interface TaskRow {
   id: string; title: string; owner: string; status: string; prio: string;
   start_date: string | null; due_date: string | null; descr: string; dod: string;
@@ -278,8 +290,10 @@ const LINA_SYSTEM = (owners: string[]): string => [
   "Ты Лина — квалификатор задач в системе LPMC. Ведёшь диалог с оператором и превращаешь свободную формулировку в задачу.",
   `Верни ТОЛЬКО JSON без markdown: {"title":"...","owner":"...|null","dod":"...","ready":true|false,"reply":"..."}.`,
   `owner — один из: ${owners.length ? owners.join(", ") : "internal"}, либо null если клиент не назван.`,
-  "title — краткая суть задачи. dod — критерии приёмки в машинной форме (одна из: 'page-contains https://ХОСТ/ \"СТРОКА\"' | 'http-status https://ХОСТ/ = 200' | 'artifact-exists report' | 'rows-at-least N' | 'record-created \"НАЗВАНИЕ\"'), плейсхолдеры оставляй ЗАГЛАВНЫМИ; пустая строка, если критерии пока не ясны.",
-  "ready — true, только если известны и суть, и владелец. reply — короткий ответ оператору: подтверждение создания либо уточняющий вопрос про недостающее (клиент или критерии).",
+  "title — краткая суть задачи. dod — критерии приёмки в машинной форме (одна из: 'page-contains https://хост/ \"строка\"' | 'http-status https://хост/ = 200' | 'artifact-exists report' | 'rows-at-least число' | 'record-created \"название\"') с ПОДСТАВЛЕННЫМИ конкретными значениями; пустая строка, если значения ещё не известны.",
+  "ЗАПРЕЩЕНО оставлять в dod заготовки заглавными (ХОСТ, СТРОКА, ЗАГОЛОВОК, N, НАЗВАНИЕ) — критерий с заготовкой проверяется буквально и всегда проваливается.",
+  "Если конкретное значение критерия неизвестно (например, какую именно строку искать на странице) — ready:false и спроси это значение в reply.",
+  "ready — true, только если известны суть, владелец и критерии без заготовок. reply — короткий ответ оператору: подтверждение создания либо уточняющий вопрос про недостающее.",
 ].join(" ");
 
 /** Квалификация Лины моделью: интерпретирует диалог, создаёт задачу или уточняет.
@@ -298,6 +312,18 @@ async function linaViaModel(pool: pg.Pool, owners: string[]): Promise<{ messages
   const dod = String(o["dod"] ?? "").trim();
   const reply = String(o["reply"] ?? "").trim();
   if (o["ready"] === true && title && owner) {
+    // Страховка к запрету в промпте: критерий с незаполненной заготовкой
+    // (ХОСТ, СТРОКА, ЗАГОЛОВОК, N…) проверяется исполнителем буквально и всегда
+    // проваливается. Такую задачу не заводим — спрашиваем конкретное значение.
+    if (dod && hasPlaceholder(dod)) {
+      await insertInbox(pool, "reply", {
+        text: `Почти готово, но в критерии осталась заготовка: ${dod}\n`
+          + "Подставьте конкретное значение — например, какую именно строку искать на странице "
+          + "(или скажите «проверить только доступность», тогда критерием будет код ответа).",
+        awaiting: "dod", draft: title,
+      });
+      return getInbox(pool);
+    }
     const t = await createTask(pool, title, owner);
     if (DOD_FORM.test(dod)) await patchTask(pool, t.id, { dod });
     await insertInbox(pool, "reply", { text: reply || `Создал задачу «${title}» для клиента ${owner}.`, taskId: t.id });
