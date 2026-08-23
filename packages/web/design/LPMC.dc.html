@@ -823,6 +823,76 @@
           </div>
         </sc-if>
 
+        <!-- ── Мастер сценария ── -->
+        <sc-if value="{{ isScenario }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="02.7 Мастер сценария" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span data-mob="eyebrow" style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);"><span style="color:var(--accent);">2.7</span><span style="width:22px;height:1px;background:var(--line-2);"></span>сценарий с нуля</span>
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;">{{ scn.title }}</span>
+              <span style="font-size:12.5px;line-height:1.6;color:var(--fg2);max-width:760px;">{{ scn.lead }}</span>
+            </div>
+
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <sc-for list="{{ scn.steps }}" as="p" hint-placeholder-count="5">
+                <span style="{{ p.style }}">{{ p.num }} {{ p.label }}</span>
+              </sc-for>
+            </div>
+
+            <div style="border:1px solid var(--line-2);background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:16px;max-width:760px;">
+              <sc-for list="{{ scn.fields }}" as="f" hint-placeholder-count="3">
+                <label style="display:flex;flex-direction:column;gap:7px;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);">{{ f.label }}</span>
+                  <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}">
+                    <input value="{{ f.value }}" onInput="{{ f.onInput }}" type="text" placeholder="{{ f.placeholder }}" style="background:var(--bg);border:1px solid var(--line-2);outline:none;color:var(--fg);font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;">
+                  </sc-if>
+                  <sc-if value="{{ f.isChoice }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                      <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3">
+                        <span onClick="{{ o.onPick }}" style="{{ o.style }}">{{ o.label }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.hint }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);line-height:1.6;">{{ f.hintText }}</span>
+                  </sc-if>
+                </label>
+              </sc-for>
+
+              <sc-if value="{{ scn.hasChecks }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:9px;">
+                  <sc-for list="{{ scn.checks }}" as="c" hint-placeholder-count="6">
+                    <div style="display:flex;gap:11px;align-items:baseline;">
+                      <span style="{{ c.markStyle }}">{{ c.mark }}</span>
+                      <span style="display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:13px;color:var(--fg);">{{ c.label }}</span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);line-height:1.55;">{{ c.detail }}</span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ scn.hasSteps }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px solid var(--ok);background:var(--ok-soft);padding:13px 15px;display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ok);">сценарий заведён</span>
+                  <sc-for list="{{ scn.done }}" as="d" hint-placeholder-count="4">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);line-height:1.6;">• {{ d.text }}</span>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;padding-top:4px;">
+                <sc-if value="{{ scn.canBack }}" hint-placeholder-val="{{ false }}">
+                  <span onClick="{{ scn.onBack }}" style="cursor:pointer;border:1px solid var(--line-2);color:var(--fg2);padding:10px 16px;font-size:13px;" style-hover="border-color:var(--fg3)">Назад</span>
+                </sc-if>
+                <span onClick="{{ scn.onNext }}" style="{{ scn.nextStyle }}">{{ scn.nextLabel }}</span>
+                <span style="flex:1;"></span>
+                <span onClick="{{ scn.onReset }}" style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3);border-bottom:1px dashed var(--line-2);" style-hover="color:var(--accent)">начать заново</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
         <!-- ── Типы задач (инструкции Лины) ── -->
         <sc-if value="{{ isTypes }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="02.5 Типы задач · инструкции Лины" style="padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px;animation:rise .25s ease;">
@@ -1763,7 +1833,8 @@ class Component extends DCLogic {
       ['approvals', '3.3', 'Подтверждения', pending.length ? String(pending.length) : ''],
       ['clients', '3.4', 'Клиенты', s.ownerRows ? String(s.ownerRows.length) : ''],
       ['types', '3.5', 'Типы задач', s.taskTypes ? String(s.taskTypes.length) : ''],
-      ['model', '3.6', 'Модель', '']
+      ['model', '3.6', 'Модель', ''],
+      ['scenario', '3.7', 'Мастер сценария', '']
     ].map(([k, num, label, badge]) => ({ num, label, badge,
       onOpen: () => this.setState({ adminScreen: k }),
       style: 'cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 11px;font-size:13px;'

@@ -260,6 +260,45 @@
     await this.loadAdmin();
   };
 
+  // ---- Мастер сценария -------------------------------------------------------
+  // Шаги ведут оператора по всему набору, который делает сценарий работающим:
+  // род работы → клиент и отправитель → хост → инструкция Лины → проверка.
+  // Полномочия и исполнитель не спрашиваются: они следуют из рода (см. shapeOf
+  // на сервере), иначе оператору пришлось бы знать модель полномочий наизусть.
+  const SCN_KINDS = [
+    ["browser-extract", "Достать значение со страницы", "браузер прочитает страницу и вернёт заголовок или совпадение", 'extract-heading https://ХОСТ/'],
+    ["browser-read", "Проверить страницу", "браузер убедится, что на странице есть строка или что код ответа нужный", 'page-contains https://ХОСТ/ "СТРОКА"'],
+    ["api-read", "Прочитать из внешнего интерфейса", "запрос к API без изменений на той стороне", "rows-at-least 1"],
+    ["api-write", "Создать запись во внешней системе", "необратимое действие: требует объявления необратимости", 'record-created "НАЗВАНИЕ"'],
+  ];
+  P.scnSet = function (patch) {
+    this.setState((s) => ({ scn: Object.assign({ step: 1 }, s.scn, patch) }));
+  };
+  P.scnCheck = async function () {
+    const d = this.state.scn || {};
+    try {
+      const r = await jx("admin/scenario/check", "POST",
+        { kind: d.kind, owner: d.owner, host: d.host, sender: d.sender || "cli:operator" });
+      this.scnSet({ checks: r.items || [], ready: !!r.ready });
+    } catch (e) { this.toast("ошибка", e.message); }
+  };
+  P.scnApply = async function () {
+    const d = this.state.scn || {};
+    try {
+      const r = await jx("admin/scenario/apply", "POST", {
+        kind: d.kind, owner: d.owner, ownerCategory: "client", host: d.host,
+        methods: [d.method || "GET"], paths: d.paths ? d.paths.split(",").map((x) => x.trim()).filter(Boolean) : [],
+        sender: d.sender || "cli:operator", lease: Number(d.lease) || 1800, approval: !!d.approval,
+        typeName: d.typeName || "", keywords: d.keywords || "", clarify: d.clarify || "", dodTemplate: d.dodTemplate || "",
+      });
+      if (!r.ok) { this.toast("не удалось", r.reason || ""); return; }
+      this.scnSet({ done: r.steps || [], step: 6 });
+      this.toast("сценарий", "заведён");
+      await this.loadAdmin();
+      await this.scnCheck();
+    } catch (e) { this.toast("ошибка", e.message); }
+  };
+
   P.delTaskType = async function (t) {
     if (typeof window !== "undefined" && !window.confirm("Удалить тип задачи «" + t.name + "»?")) return;
     try { await jx("tasktypes/" + t.id, "DELETE"); this.toast("типы задач", "тип удалён"); }
@@ -329,6 +368,106 @@
   const origRV = P.renderVals;
   P.renderVals = function () {
     const v = origRV.call(this);
+    // ---- Мастер сценария: раздел 3.7 ----
+    v.isScenario = this.state.adminScreen === "scenario";
+    if (v.isScenario) {
+      const d = this.state.scn || { step: 1 };
+      const step = d.step || 1;
+      const owners = (this.state.realOwners || []).filter(Boolean);
+      const kind = SCN_KINDS.filter((k) => k[0] === d.kind)[0] || null;
+      const pick = (on) => "cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 12px;border:1px solid "
+        + (on ? "var(--accent);color:var(--accent);background:var(--accent-soft);" : "var(--line-2);color:var(--fg2);");
+      const inp = (key, label, ph, hint) => ({
+        label: label, isInput: true, isChoice: false, value: d[key] || "", placeholder: ph,
+        hint: !!hint, hintText: hint || "", onInput: (e) => this.scnSet({ [key]: e.target.value }),
+      });
+      const choice = (key, label, opts, hint) => ({
+        label: label, isChoice: true, isInput: false, hint: !!hint, hintText: hint || "",
+        options: opts.map((o) => ({ label: o[1], style: pick(String(d[key] || opts[0][0]) === String(o[0])), onPick: () => this.scnSet({ [key]: o[0] }) })),
+      });
+
+      let fields = [], title = "", lead = "", nextLabel = "Далее →", canBack = step > 1 && step < 6;
+      if (step === 1) {
+        title = "Что должна делать система?";
+        lead = "Выберите род работы. Полномочия, исполнитель и форма критериев следуют из него — знать модель полномочий наизусть не нужно.";
+        fields = [choice("kind", "род сценария", SCN_KINDS.map((k) => [k[0], k[1]]),
+          kind ? kind[2] + ". Критерий будет вида: " + kind[3] : "выберите род работы")];
+      } else if (step === 2) {
+        title = "Для кого и от кого";
+        lead = "Клиент — единица изоляции: задачи, разрешения и правила привязаны к нему. Отправитель — тот, от чьего имени приходит обращение; для панели это cli:operator.";
+        fields = [
+          owners.length ? choice("owner", "клиент", owners.map((o) => [o, o]), "или впишите новый слаг ниже — мастер его заведёт")
+            : inp("owner", "клиент", "acme-school", "слаг: строчная латиница, цифры, дефис"),
+          inp("ownerNew", "новый клиент (если нужен)", "acme-school", "заполните, только если клиента ещё нет"),
+          inp("sender", "отправитель", "cli:operator", "для веб-панели — cli:operator"),
+        ];
+      } else if (step === 3) {
+        title = "Куда ходить наружу";
+        lead = "Хост разрешается сразу на обеих границах: в таблице PACT и в политике узла. Форма с www и без добавляется вместе — сайты часто перенаправляют между ними.";
+        fields = [
+          inp("host", "хост", "example.com", "без схемы и путей: example.com"),
+          choice("method", "метод", [["GET", "GET"], ["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"], ["DELETE", "DELETE"]]),
+          inp("paths", "префиксы путей", "/v1/data", "через запятую; пусто = любой путь. Разрешение не должно быть грубее действия"),
+        ];
+      } else if (step === 4) {
+        title = "Инструкция Лины";
+        lead = "Тип задачи учит Лину квалифицировать похожие обращения: по ключевым словам она подберёт тип, спросит недостающее и подставит форму критериев.";
+        fields = [
+          inp("typeName", "название типа", kind ? kind[1] : "", "как называется этот род задач"),
+          inp("keywords", "ключевые слова", "заголовок, прочитать, страница", "через запятую"),
+          inp("clarify", "что уточнять", "адрес страницы", "какую информацию Лина должна выспросить"),
+          inp("dodTemplate", "шаблон критериев", kind ? kind[3] : "", "машинная форма; значения подставит Лина"),
+        ];
+      } else if (step === 5) {
+        title = "Проверка готовности";
+        lead = "Что уже есть, а чего не хватает. Мастер заведёт недостающее; о том, что делается развёртыванием (браузерный инстанс, значение секрета), он скажет честно.";
+        nextLabel = "Завести сценарий";
+      } else {
+        title = "Сценарий готов";
+        lead = "Заведено всё, что нужно для исполнения. Опишите задачу Лине — она подберёт тип и подставит критерии.";
+        nextLabel = "Проверить ещё раз";
+      }
+
+      v.scn = {
+        title: title, lead: lead,
+        steps: ["род", "клиент", "хост", "инструкция", "проверка"].map((label, i) => ({
+          num: String(i + 1), label: label,
+          style: "font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:6px 10px;border:1px solid "
+            + (step === i + 1 ? "var(--accent);color:var(--accent);background:var(--accent-soft);"
+              : step > i + 1 ? "var(--line-2);color:var(--ok);" : "var(--line);color:var(--fg3);"),
+        })),
+        fields: fields,
+        hasChecks: step >= 5 && !!(d.checks || []).length,
+        checks: (d.checks || []).map((c) => ({
+          label: c.label, detail: c.detail,
+          mark: c.ok ? "✓" : c.blocking ? "✗" : "!",
+          markStyle: "font-family:'JetBrains Mono',monospace;font-size:13px;color:"
+            + (c.ok ? "var(--ok)" : c.blocking ? "var(--danger)" : "var(--warn)") + ";",
+        })),
+        hasSteps: step === 6 && !!(d.done || []).length,
+        done: (d.done || []).map((t) => ({ text: t })),
+        canBack: canBack, nextLabel: nextLabel,
+        nextStyle: "cursor:pointer;background:var(--accent-fill);color:var(--accent-fill-fg);padding:11px 18px;font-size:13.5px;font-weight:600;",
+        onBack: () => this.scnSet({ step: Math.max(1, step - 1) }),
+        onReset: () => this.setState({ scn: { step: 1 } }),
+        onNext: async () => {
+          if (step === 1 && !d.kind) return this.toast("нужно", "выберите род сценария");
+          if (step === 2) {
+            const owner = (d.ownerNew || "").trim() || d.owner || owners[0];
+            if (!owner) return this.toast("нужно", "укажите клиента");
+            this.scnSet({ owner: owner, step: 3 });
+            return;
+          }
+          if (step === 3 && !(d.host || "").trim()) return this.toast("нужно", "укажите хост");
+          if (step === 4) { this.scnSet({ step: 5 }); return this.scnCheck(); }
+          if (step === 5) return this.scnApply();
+          if (step === 6) return this.scnCheck();
+          this.scnSet({ step: step + 1 });
+        },
+      };
+    } else {
+      v.scn = { steps: [], fields: [], checks: [], done: [] };
+    }
     if (v && v.confirm && v.confirm.open && this.state.confirm && this.state.confirm.name) {
       const name = this.state.confirm.name;
       v.confirm.onConfirm = async () => {
