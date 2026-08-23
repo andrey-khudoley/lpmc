@@ -2360,6 +2360,25 @@
     state: restarted
   when: lpmc_code_sync.changed
 
+# Группа сокета внесения секретов: арбитр запечатывает значение мастер-ключом,
+# панель только передаёт его. Без общей группы сокет не сменит владельца и
+# панель не сможет вносить секреты (арбитр при этом продолжит работать).
+- name: Завести группу сокета внесения секретов
+  become: true
+  ansible.builtin.group:
+    name: "{{ lpmc_system_secret_put_group }}"
+    state: present
+
+- name: Включить арбитра и веб-панель в группу сокета внесения секретов
+  become: true
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: "{{ lpmc_system_secret_put_group }}"
+    append: true
+  loop:
+    - lpmc-pact
+    - "{{ lpmc_system_web_user }}"
+
 # --- LLM-мост подписки (исполняет вызов модели на машине с логином Claude) ------
 - name: Установить каталог bin приложения
   become: true

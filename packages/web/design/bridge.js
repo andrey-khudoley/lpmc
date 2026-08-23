@@ -356,7 +356,19 @@
         this.toast("готово", "эндпоинт " + w.host + " разрешён"); this.setState({ wizard: null }); await this.loadAdmin();
         return;
       } else if (w.kind === "secret") {
-        this.toast("секрет", "значение вносится консолью lpmc-admin (мастер-ключ на веб не выносится)"); this.setState({ wizard: null });
+        // Двухшаговый мастер: имя и владелец, затем значение. Значение уходит
+        // арбитру и запечатывается им; панель его не хранит и прочитать не может.
+        const setW = (patch) => this.setState((s) => ({ wizard: Object.assign({}, s.wizard, patch) }));
+        if (w.step === 1) {
+          if (!/^[A-Za-z0-9_.-]{1,128}$/.test(w.name || "")) { setW({ err: "имя: латиница, цифры, ._- до 128 символов" }); return; }
+          setW({ step: 2, err: null }); return;
+        }
+        if (!(w.value || "").trim()) { setW({ err: "пустое значение не принимается" }); return; }
+        const r = await jx("admin/secret", "POST", { name: w.name, owner: w.owner, purpose: w.purpose || "", value: w.value });
+        if (!r.ok) { setW({ err: r.error || "арбитр отклонил" }); return; }
+        this.toast("custody", "секрет " + w.name + " внесён · значение запечатано арбитром");
+        this.setState({ wizard: null }); await this.loadAdmin();
+        return;
       }
     } catch (e) { this.toast("ошибка", e.message); }
   };

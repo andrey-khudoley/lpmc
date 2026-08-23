@@ -442,7 +442,7 @@
     }
 
     var log = (S.assist[s.scope] || []).map(msgBlock).join("");
-    var addLabel = { clients: "+ Клиент", endpoints: "+ Эндпоинт", rules: "+ Правило", types: "+ Тип" }[S.section];
+    var addLabel = { clients: "+ Клиент", endpoints: "+ Эндпоинт", rules: "+ Правило", types: "+ Тип", secrets: "+ Секрет" }[S.section];
     return appbar(s.title, { back: true, action: addLabel ? { act: "add", label: addLabel } : null })
       + '<div class="screen' + (s.scope ? " haschat" : "") + '">'
       + (body || '<div class="empty">Пусто.</div>')
@@ -526,6 +526,14 @@
         + field("шаблон критериев", "f_dod", d.dod_template, 'напр. page-contains https://ХОСТ/ "СТРОКА"'),
         d.id ? "Сохранить" : "Добавить тип");
     }
+    if (k === "secret") {
+      return sheet("Внести секрет",
+        field("имя", "f_name", d.name, "латиница, цифры, ._- до 128 символов")
+        + options("владелец", "owner", owners.length ? owners : [["internal", "internal"]], d.owner || (owners[0] && owners[0][0]))
+        + field("назначение", "f_purpose", d.purpose, "для чего используется")
+        + field("значение", "f_value", "", "запечатает арбитр; панель значение не хранит и прочитать не сможет", "password"),
+        "Внести секрет");
+    }
     if (k === "llm") {
       var models = (S.models && S.models[d.kind === "openai" ? "openai" : "anthropic"]) || [];
       return sheet("Провайдер · " + (d.kind === "subscription" ? "подписка" : d.kind),
@@ -598,6 +606,15 @@
       var t = { name: name, keywords: v("f_keywords"), executor: d.executor || "mita", clarify: v("f_clarify"), dod_template: v("f_dod") };
       api("tasktypes" + (d.id ? "/" + d.id : ""), "POST", t)
         .then(function () { done("тип", d.id ? "обновлён" : "добавлен"); return loadAdmin().then(render); }).catch(fail);
+    } else if (k === "secret") {
+      var nm = v("f_name"), val = v("f_value");
+      if (!/^[A-Za-z0-9_.-]{1,128}$/.test(nm)) return toast("имя", "латиница, цифры, ._- до 128");
+      if (!val) return toast("значение", "пустое значение не принимается");
+      api("admin/secret", "POST", { name: nm, owner: d.owner || "internal", purpose: v("f_purpose"), value: val })
+        .then(function (r) {
+          if (!r.ok) return toast("не удалось", r.error || "арбитр отклонил");
+          done("custody", "секрет " + nm + " внесён"); return loadAdmin().then(render);
+        }).catch(fail);
     } else if (k === "llm") {
       var body2 = { model: v("f_model") };
       if (v("f_key")) body2.apiKey = v("f_key");
@@ -670,7 +687,7 @@
     if (cmd === "submitsheet") return submitSheet();
     if (cmd === "newtask") { S.sheet = { kind: "newtask" }; S.draft = {}; return render(); }
     if (cmd === "add") {
-      var kind = { clients: "client", endpoints: "endpoint", rules: "rule", types: "tasktype" }[S.section];
+      var kind = { clients: "client", endpoints: "endpoint", rules: "rule", types: "tasktype", secrets: "secret" }[S.section];
       S.sheet = { kind: kind }; S.draft = {}; return render();
     }
     if (cmd === "edit") { var t = S.task.task; S.sheet = { kind: "edittask" };

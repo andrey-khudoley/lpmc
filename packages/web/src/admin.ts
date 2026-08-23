@@ -1,3 +1,4 @@
+import nodeHttp from "node:http";
 import type pg from "pg";
 
 /**
@@ -224,6 +225,31 @@ export async function updateRule(pool: pg.Pool, id: number, r: {
 export async function delIrr(pool: pg.Pool, id: number): Promise<void> {
   await pool.query("DELETE FROM pact.irreversibility WHERE id = $1", [id]);
 }
+/**
+ * Внести значение секрета. Веб его НЕ шифрует и НЕ хранит: значение уходит
+ * арбитру через сокет, он запечатывает мастер-ключом. Прочитать секрет панель
+ * по-прежнему не может — чтение остаётся выдачей исполнителю под лизинг.
+ */
+export function putSecret(p: { name: string; owner: string; purpose: string; value: string }):
+Promise<{ ok: boolean; error?: string }> {
+  const socketPath = process.env["LPMC_SECRET_PUT_SOCKET"] ?? "/run/lpmc-pact/secret-put.sock";
+  const body = Buffer.from(JSON.stringify(p));
+  return new Promise((resolve) => {
+    const req = nodeHttp.request({ socketPath, path: "/secret", method: "POST", timeout: 8000,
+      headers: { "Content-Type": "application/json", "Content-Length": body.length } }, (res) => {
+      const c: Buffer[] = []; res.on("data", (x: Buffer) => c.push(x));
+      res.on("end", () => {
+        let j: { ok?: boolean; error?: string } = {};
+        try { j = JSON.parse(Buffer.concat(c).toString()) as typeof j; } catch { j = { error: "ответ арбитра не разобран" }; }
+        resolve({ ok: (res.statusCode ?? 0) < 300 && j.ok === true, ...(j.error ? { error: j.error } : {}) });
+      });
+    });
+    req.on("error", (e) => resolve({ ok: false, error: `арбитр недоступен: ${e.message}` }));
+    req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "арбитр не ответил" }); });
+    req.end(body);
+  });
+}
+
 // Удаление ИМЕНИ секрета (и значения по каскаду). Мастер-ключ не нужен.
 export async function delSecret(pool: pg.Pool, name: string): Promise<void> {
   await pool.query("DELETE FROM pact.secret_names WHERE name = $1", [name]);

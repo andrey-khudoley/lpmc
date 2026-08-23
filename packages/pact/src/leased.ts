@@ -7,7 +7,7 @@ import { dirname } from "node:path";
 import { createPool } from "@lpmc/runtime";
 import { signRunToken, type Allow } from "./token-sign.js";
 import { permittedMethods, type IrreversibilityRule } from "./irreversibility.js";
-import { issueSecret, loadMasterKey, open } from "./secrets.js";
+import { issueSecret, loadMasterKey, open, seal } from "./secrets.js";
 import { digestOf } from "./secret-scan.js";
 
 /**
@@ -462,8 +462,61 @@ function listenOn(srv: http.Server, path: string, group: string, what: string): 
   });
 }
 
+/**
+ * Внесение значения секрета операторской панелью.
+ *
+ * Мастер-ключ на веб не выносится и не будет: шифрует и хранит арбитр, панель
+ * лишь передаёт значение. Отсюда важное свойство — панель может ЗАДАТЬ секрет,
+ * но не может его ПРОЧИТАТЬ: чтение остаётся только выдачей исполнителю под
+ * лизинг. Компрометация веб-компонента позволяет подменить секрет, но не
+ * извлечь уже内есённые — это заметно слабее, чем отдать ему ключ.
+ *
+ * Право обращения выражено правами сокета, как и у остальных путей арбитра.
+ */
+const SECRET_SOCKET = process.env["LPMC_SECRET_PUT_SOCKET"] ?? "/run/lpmc-pact/secret-put.sock";
+const SECRET_GROUP = process.env["LPMC_SECRET_PUT_GROUP"] ?? "lpmc-secret-put";
+
+const secretServer = http.createServer((req, res) => {
+  if (req.method !== "POST" || (req.url ?? "") !== "/secret") { reply(res, 404, { error: "нет такого ресурса" }); return; }
+  readBody(req)
+    .then(async (body) => {
+      let p: { name?: string; owner?: string; purpose?: string; value?: string };
+      try { p = JSON.parse(body || "{}") as typeof p; } catch { reply(res, 400, { error: "тело не JSON" }); return; }
+      const name = (p.name ?? "").trim();
+      const owner = (p.owner ?? "").trim();
+      const value = p.value ?? "";
+      if (!/^[A-Za-z0-9_.-]{1,128}$/.test(name)) { reply(res, 400, { error: "имя: латиница, цифры, ._- до 128" }); return; }
+      if (!owner) { reply(res, 400, { error: "обязателен владелец" }); return; }
+      // Пустое значение не принимается: отсутствие секрета выражается его отсутствием.
+      if (value === "") { reply(res, 400, { error: "пустое значение не принимается" }); return; }
+      const sealed = seal(value, loadMasterKey(MASTER_KEY));
+      await pool.query(
+        `INSERT INTO secret_names (name, owner_slug, purpose) VALUES ($1, $2, $3)
+         ON CONFLICT (name) DO UPDATE SET owner_slug = EXCLUDED.owner_slug, purpose = EXCLUDED.purpose`,
+        [name, owner, (p.purpose ?? "").trim() || "не указано"]);
+      await pool.query(
+        `INSERT INTO secret_values (name, wrapped_key, wrapped_key_iv, wrapped_key_tag, ciphertext, iv, tag)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (name) DO UPDATE SET wrapped_key = EXCLUDED.wrapped_key,
+           wrapped_key_iv = EXCLUDED.wrapped_key_iv, wrapped_key_tag = EXCLUDED.wrapped_key_tag,
+           ciphertext = EXCLUDED.ciphertext, iv = EXCLUDED.iv, tag = EXCLUDED.tag, updated_at = now()`,
+        [name, sealed.wrappedKey, sealed.wrappedKeyIv, sealed.wrappedKeyTag, sealed.ciphertext, sealed.iv, sealed.tag]);
+      console.log(`секрет ${name} внесён панелью для владельца ${owner}`);
+      reply(res, 200, { ok: true, name });
+    })
+    .catch((e: unknown) => reply(res, 500, { error: e instanceof Error ? e.message : String(e) }));
+});
+
 listenOn(server, SOCKET, GROUP, "выдача учётных данных запуска");
 listenOn(modelServer, MODEL_SOCKET, MODEL_GROUP, "выдача доступа к модели");
+// Отдельный путь и отдельная группа: право задать секрет — не то же, что право
+// получить учётные данные запуска. Сбой здесь не должен ронять выдачу лизингов,
+// поэтому он гасится: без сокета панель просто не сможет вносить значения.
+try {
+  listenOn(secretServer, SECRET_SOCKET, SECRET_GROUP, "внесение значения секрета");
+} catch (e) {
+  console.error(`сокет внесения секретов не поднят (${SECRET_GROUP}): ${e instanceof Error ? e.message : String(e)}`);
+}
 
 /**
  * Публикация политики узла прокси.
