@@ -64,13 +64,13 @@
   function loadAdmin() {
     return Promise.all([
       api("admin/owners"), api("admin/services"), api("admin/secrets"),
-      api("admin/approvals"), api("tasktypes"), api("admin/llm"), api("admin/assistant"),
+      api("admin/approvals"), api("tasktypes"), api("admin/llm"), api("admin/assistant"), api("admin/browsers"),
     ]).then(function (a) {
       S.admin = {
         owners: a[0].owners || [], bindings: a[0].bindings || [],
         allow: a[1].allow || [], irr: a[1].irr || [], rules: a[1].rules || [],
         secrets: a[2].secrets || [], approvals: a[3].approvals || [],
-        types: a[4].types || [], llm: a[5].providers || [],
+        types: a[4].types || [], llm: a[5].providers || [], browsers: a[7].browsers || [],
       };
       S.assist = {};
       (a[6].messages || []).forEach(function (m) {
@@ -248,6 +248,7 @@
     { key: "secrets", title: "Секреты", scope: "", hint: "имена; значения — только консоль" },
     { key: "approvals", title: "Подтверждения", scope: "", hint: "журнал необратимых действий" },
     { key: "model", title: "Модель", scope: "", hint: "провайдеры и фейловер" },
+    { key: "browsers", title: "Браузеры", scope: "", hint: "инстансы владельцев для MITA" },
   ];
   function viewAdmin() {
     var a = S.admin || {};
@@ -426,6 +427,14 @@
         return itemCard(x.op + " · " + x.host, ['<span class="chip ' + cls + '">' + h(x.state) + "</span>",
           '<span class="chip dim">' + h(x.created || "") + "</span>"], []);
       }).join("") || '<div class="empty">Очередь пуста.</div>';
+    } else if (S.section === "browsers") {
+      body = '<div class="card"><span class="dim" style="font-size:12.5px">Панель ведёт соответствие «владелец → адрес CDP». Сам процесс браузера поднимается развёртыванием: правом запускать службы на узле веб-компонент не наделён.</span></div>'
+        + (a.browsers || []).map(function (b) {
+          return itemCard(b.owner_slug, ['<span class="chip ' + (b.disabled ? "dim" : "ok") + '">' + (b.disabled ? "выключен" : "назначен") + "</span>"],
+            ['<div class="kv"><b>адрес</b><span class="mono" style="font-size:11.5px">' + h(b.cdp_url) + "</span></div>",
+             b.note ? '<div class="kv"><b>заметка</b><span>' + h(b.note) + "</span></div>" : ""],
+            [actBtn("browser-del:" + b.owner_slug, "убрать", "dan")]);
+        }).join("");
     } else if (S.section === "model") {
       body = (a.llm || []).map(function (p, i) {
         var label = p.kind === "subscription" ? "По подписке" : p.kind === "anthropic" ? "Anthropic API" : "OpenAI API";
@@ -442,7 +451,7 @@
     }
 
     var log = (S.assist[s.scope] || []).map(msgBlock).join("");
-    var addLabel = { clients: "+ Клиент", endpoints: "+ Эндпоинт", rules: "+ Правило", types: "+ Тип", secrets: "+ Секрет" }[S.section];
+    var addLabel = { clients: "+ Клиент", endpoints: "+ Эндпоинт", rules: "+ Правило", types: "+ Тип", secrets: "+ Секрет", browsers: "+ Инстанс" }[S.section];
     return appbar(s.title, { back: true, action: addLabel ? { act: "add", label: addLabel } : null })
       + '<div class="screen' + (s.scope ? " haschat" : "") + '">'
       + (body || '<div class="empty">Пусто.</div>')
@@ -534,6 +543,13 @@
         + field("значение", "f_value", "", "запечатает арбитр; панель значение не хранит и прочитать не сможет", "password"),
         "Внести секрет");
     }
+    if (k === "browser") {
+      return sheet("Браузерный инстанс",
+        options("владелец", "owner", owners.length ? owners : [["internal", "internal"]], d.owner || (owners[0] && owners[0][0]))
+        + field("адрес CDP", "f_cdp", d.cdp || "http://127.0.0.1:", "только loopback: http://127.0.0.1:ПОРТ")
+        + field("заметка", "f_note", d.note, "например: инстанс, поднятый ролью"),
+        "Назначить");
+    }
     if (k === "llm") {
       var models = (S.models && S.models[d.kind === "openai" ? "openai" : "anthropic"]) || [];
       return sheet("Провайдер · " + (d.kind === "subscription" ? "подписка" : d.kind),
@@ -615,6 +631,12 @@
           if (!r.ok) return toast("не удалось", r.error || "арбитр отклонил");
           done("custody", "секрет " + nm + " внесён"); return loadAdmin().then(render);
         }).catch(fail);
+    } else if (k === "browser") {
+      api("admin/browsers", "POST", { owner: d.owner || "internal", cdp: v("f_cdp"), note: v("f_note") })
+        .then(function (r) {
+          if (!r.ok) return toast("не удалось", r.reason || "");
+          done("браузеры", "инстанс назначен"); return loadAdmin().then(render);
+        }).catch(fail);
     } else if (k === "llm") {
       var body2 = { model: v("f_model") };
       if (v("f_key")) body2.apiKey = v("f_key");
@@ -687,7 +709,7 @@
     if (cmd === "submitsheet") return submitSheet();
     if (cmd === "newtask") { S.sheet = { kind: "newtask" }; S.draft = {}; return render(); }
     if (cmd === "add") {
-      var kind = { clients: "client", endpoints: "endpoint", rules: "rule", types: "tasktype", secrets: "secret" }[S.section];
+      var kind = { clients: "client", endpoints: "endpoint", rules: "rule", types: "tasktype", secrets: "secret", browsers: "browser" }[S.section];
       S.sheet = { kind: kind }; S.draft = {}; return render();
     }
     if (cmd === "edit") { var t = S.task.task; S.sheet = { kind: "edittask" };
@@ -712,6 +734,11 @@
       if (prompt("Удаление клиента «" + arg + "» необратимо: стираются задачи и аудит.\nВведите слаг для подтверждения:") !== arg) return;
       return api("admin/owner/" + encodeURIComponent(arg), "DELETE").then(function (r) {
         if (r.ok === false) return toast("нельзя", r.reason || ""); toast("клиент", "удалён"); return loadAdmin().then(render); }).catch(fail);
+    }
+    if (cmd === "browser-del") {
+      if (!confirm("Убрать инстанс владельца «" + arg + "» из карты?")) return;
+      return api("admin/browsers/" + encodeURIComponent(arg), "DELETE").then(function () {
+        toast("браузеры", "убрано"); return loadAdmin().then(render); }).catch(fail);
     }
     if (cmd === "allow-del" || cmd === "rule-del" || cmd === "secret-del" || cmd === "type-del") {
       if (!confirm("Удалить?")) return;
