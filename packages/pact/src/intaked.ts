@@ -207,11 +207,25 @@ async function handle(pool: pg.Pool, registry: TaskRegistry, q: Qualification): 
       reply_route_id: q.decision_reply_route_id,
       channel: q.decision_channel, adapter_id: q.decision_adapter_id,
       dod: q.payload.dod, objective: q.payload.objective,
+      // Адрес браузерного инстанса владельца выдаёт арбитр вместе с полномочиями,
+      // а не выбирает исполнитель: инстанс принадлежит владельцу (W2-MITA-02), и
+      // соответствие «владелец → инстанс» — такая же политика, как allowlist.
+      // Исполнителю схема арбитра недоступна, поэтому значение едет в задаче.
+      cdp_url: await browserFor(pool, owner),
     },
     correlationId, causationId: q.event_id, dedupKey: `run:${lease.runId}`,
   });
   console.log(`задача ${accepted.taskId}: ALLOWED — ${verdict.grantedCapabilities.join(", ")}`
     + `; запуск ${lease.runId} адресован исполнителю ${verdict.executor}`);
+}
+
+/** Адрес браузерного инстанса владельца; null, если инстанс не назначен. */
+async function browserFor(pool: pg.Pool, owner: string): Promise<string | null> {
+  try {
+    const r = await pool.query<{ cdp_url: string }>(
+      "SELECT cdp_url FROM browser_instances WHERE owner_slug = $1 AND disabled_at IS NULL", [owner]);
+    return r.rows[0]?.cdp_url ?? null;
+  } catch { return null; }
 }
 
 async function drainRejections(pool: pg.Pool): Promise<void> {

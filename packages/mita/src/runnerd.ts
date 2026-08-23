@@ -38,6 +38,22 @@ const ARTIFACTS_ROOT = process.env["LPMC_ARTIFACTS_ROOT"] ?? "/var/lib/lpmc-syst
 const CDP_INSTANCES: Record<string, string> = JSON.parse(
   process.env["LPMC_CDP_INSTANCES"] ?? '{"internal":"http://127.0.0.1:9322"}',
 ) as Record<string, string>;
+
+/**
+ * Соответствие «владелец → адрес CDP» — данные арбитра, а не умолчание в коде.
+ * Пока оно жило здесь константой, браузерные задачи мог получать ровно один
+ * владелец: завести второго было нечем, кроме правки исходника.
+ *
+ * Адрес приходит в авторизованной задаче: схема арбитра исполнителю недоступна
+ * (реестр владельцев он получает событиями, а не общим доступом), и запрашивать
+ * её здесь значило бы завести исполнителю право читать политику. Перечень из
+ * окружения остаётся запасным — для узла, где карта ещё не заполнена.
+ */
+function cdpFor(task: Record<string, unknown>, owner: string): string | undefined {
+  const fromTask = task["cdp_url"];
+  if (typeof fromTask === "string" && fromTask !== "") return fromTask;
+  return CDP_INSTANCES[owner];
+}
 const SELF = "mita";
 const SCHEMA_VERSION = "1.0.0";
 
@@ -112,7 +128,7 @@ async function main(): Promise<void> {
         return;
       }
 
-      const cdpUrl = CDP_INSTANCES[owner];
+      const cdpUrl = cdpFor(task, owner);
       if (cdpUrl === undefined) {
         // Инстанса владельца нет — работать в чужом нельзя. Отказ до действия.
         await publishFailure(pool, envelope, task, "input.instance_mismatch");

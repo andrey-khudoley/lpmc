@@ -104,9 +104,11 @@ export async function check(pool: pg.Pool, s: Partial<ScenarioSpec>): Promise<{ 
   // Браузерный инстанс владельца: у MITA он задан окружением юнита, поэтому для
   // нового владельца его заводит развёртывание, а не панель.
   if (shape.exec === "mita") {
-    const instances = process.env["LPMC_CDP_INSTANCES"] ?? '{"internal":"http://127.0.0.1:9322"}';
-    let has = false;
-    try { has = Object.prototype.hasOwnProperty.call(JSON.parse(instances) as object, owner); } catch { has = false; }
+    // Карта инстансов — данные арбитра (та же, что читает MITA), а не окружение
+    // веб-процесса: иначе проверка показывала бы не то, что увидит исполнитель.
+    const inst = await q<{ owner_slug: string }>(
+      "SELECT owner_slug FROM pact.web_browser_list() WHERE owner_slug = $1 AND NOT disabled", [owner]);
+    const has = inst.length > 0;
     // Блокирующее по существу: MITA отклоняет запуск владельца без инстанса до
     // первого действия (W2-MITA-02, чужой профиль использовать нельзя). Панель
     // инстанс не заводит — это работа развёртывания, и честнее сказать об этом,

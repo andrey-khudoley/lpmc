@@ -44,6 +44,29 @@ export async function revokeNodePolicy(pool: pg.Pool, host: string): Promise<{ o
   return r.rows[0]!.r;
 }
 
+/**
+ * Карта браузерных инстансов. Панель ведёт соответствие «владелец → адрес CDP»,
+ * но НЕ управляет самими процессами: запуск службы на узле — работа
+ * развёртывания, и веб-компоненту такого права не даётся.
+ */
+export async function browsers(pool: pg.Pool): Promise<unknown> {
+  try {
+    const r = await pool.query("SELECT * FROM pact.web_browser_list()");
+    return { browsers: r.rows };
+  } catch { return { browsers: [], error: "карта инстансов недоступна" }; }
+}
+export async function assignBrowser(pool: pg.Pool, owner: string, cdp: string, note: string):
+Promise<{ ok: boolean; reason?: string }> {
+  const r = await pool.query<{ r: { ok: boolean; reason?: string } }>(
+    "SELECT pact.web_browser_assign($1,$2,$3) AS r", [owner, cdp, note]);
+  return r.rows[0]!.r;
+}
+export async function removeBrowser(pool: pg.Pool, owner: string): Promise<{ ok: boolean; reason?: string }> {
+  const r = await pool.query<{ r: { ok: boolean; reason?: string } }>(
+    "SELECT pact.web_browser_remove($1) AS r", [owner]);
+  return r.rows[0]!.r;
+}
+
 export async function services(pool: pg.Pool): Promise<unknown> {
   const allow = await pool.query(
     `SELECT id, owner_slug AS owner, host, methods, path_prefixes AS paths, operation_type AS op, ruleset_version AS version
