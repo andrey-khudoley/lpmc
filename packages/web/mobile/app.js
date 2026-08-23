@@ -21,6 +21,7 @@
     assist: {},              // ленты ассистента по scope
     draft: {},               // черновики полей форм
     filter: "all",
+    wiz: { step: 1 },       // мастер сценария
   };
 
   // ---- сеть -----------------------------------------------------------------
@@ -239,6 +240,7 @@
 
   // ---- экран: админка -------------------------------------------------------
   var SECTIONS = [
+    { key: "wizard", title: "Мастер сценария", scope: "", hint: "настроить работающий сценарий с нуля" },
     { key: "clients", title: "Клиенты", scope: "client", hint: "владельцы задач и политики" },
     { key: "endpoints", title: "Эндпоинты", scope: "endpoint", hint: "куда разрешён выход наружу" },
     { key: "rules", title: "Правила", scope: "rule", hint: "полномочия, исполнитель, лизинг" },
@@ -271,7 +273,111 @@
   }
   function actBtn(act, label, cls) { return '<span class="link' + (cls ? " " + cls : "") + '" data-act="' + act + '" style="font-size:12.5px">' + h(label) + "</span>"; }
 
+  // ---- Мастер сценария: пять шагов до работающего сценария ------------------
+  // Род работы задаёт полномочия, исполнителя и форму критериев — их не
+  // спрашиваем: знать модель полномочий наизусть оператор не обязан.
+  var WKINDS = [
+    ["browser-extract", "Достать значение со страницы", "браузер вернёт заголовок или совпадение", 'extract-heading https://ХОСТ/'],
+    ["browser-read", "Проверить страницу", "есть ли строка, тот ли код ответа", 'page-contains https://ХОСТ/ "СТРОКА"'],
+    ["api-read", "Прочитать из внешнего интерфейса", "запрос к API без изменений", "rows-at-least 1"],
+    ["api-write", "Создать запись во внешней системе", "необратимо: объявляется необратимость", 'record-created "НАЗВАНИЕ"'],
+  ];
+  function wkind() { return WKINDS.filter(function (k) { return k[0] === S.wiz.kind; })[0] || null; }
+
+  function wizStep(n) { S.wiz.step = n; render(); }
+  function wizCheck() {
+    return api("admin/scenario/check", "POST", { kind: S.wiz.kind, owner: S.wiz.owner, host: S.wiz.host, sender: S.wiz.sender || "cli:operator" })
+      .then(function (r) { S.wiz.checks = r.items || []; S.wiz.ready = !!r.ready; render(); }).catch(fail);
+  }
+  function wizApply() {
+    var w = S.wiz, k = wkind();
+    return api("admin/scenario/apply", "POST", {
+      kind: w.kind, owner: w.owner, ownerCategory: "client", host: w.host,
+      methods: [w.method || "GET"], paths: w.paths ? w.paths.split(",").map(function (x) { return x.trim(); }).filter(Boolean) : [],
+      sender: w.sender || "cli:operator", lease: 1800, approval: false,
+      typeName: w.typeName || (k ? k[1] : ""), keywords: w.keywords || "", clarify: w.clarify || "",
+      dodTemplate: w.dodTemplate || (k ? k[3] : ""),
+    }).then(function (r) {
+      if (!r.ok) { toast("не удалось", r.reason || ""); return; }
+      S.wiz.done = r.steps || []; S.wiz.step = 6;
+      toast("сценарий", "заведён");
+      return loadAdmin().then(wizCheck);
+    }).catch(fail);
+  }
+
+  function viewWizard() {
+    var w = S.wiz, k = wkind(), a = S.admin || {};
+    var owners = (a.owners || []).filter(function (o) { return !o.archived; }).map(function (o) { return o.slug; });
+    // Клиент по умолчанию — первый действующий: пустой выбор на шаге «далее»
+    // выглядел бы отказом без причины.
+    if (!w.owner && owners.length) w.owner = owners[0];
+    var pills = ["род", "клиент", "хост", "инструкция", "проверка"].map(function (label, i) {
+      var st = w.step === i + 1 ? "acc" : w.step > i + 1 ? "ok" : "dim";
+      return '<span class="chip ' + st + '">' + (i + 1) + " " + label + "</span>";
+    }).join("");
+    var body = "", title = "", lead = "", next = "Далее →";
+
+    if (w.step === 1) {
+      title = "Что должна делать система?"; lead = "Полномочия и форма критериев следуют из рода работы.";
+      body = WKINDS.map(function (x) {
+        return '<div class="card" data-act="wkind:' + x[0] + '"' + (w.kind === x[0] ? ' style="border-color:var(--accent-line)"' : "") + ">"
+          + "<h3>" + h(x[1]) + "</h3><span class=\"dim\" style=\"font-size:12.5px\">" + h(x[2]) + "</span>"
+          + '<span class="mono dim" style="font-size:11px">' + h(x[3]) + "</span></div>";
+      }).join("");
+    } else if (w.step === 2) {
+      title = "Для кого и от кого"; lead = "Клиент — единица изоляции. Отправитель для панели — cli:operator.";
+      body = '<div class="field"><label>клиент</label><div class="opts" data-wopts="owner">'
+        + owners.map(function (o) { return '<button data-val="' + h(o) + '"' + (w.owner === o ? ' class="on"' : "") + ">" + h(o) + "</button>"; }).join("")
+        + "</div></div>"
+        + '<div class="field"><label>или новый клиент</label><input id="w_ownerNew" value="' + h(w.ownerNew || "") + '" placeholder="acme-school"><span class="hint">заполните, только если клиента ещё нет</span></div>'
+        + '<div class="field"><label>отправитель</label><input id="w_sender" value="' + h(w.sender || "cli:operator") + '"></div>';
+    } else if (w.step === 3) {
+      title = "Куда ходить наружу"; lead = "Хост разрешается на обеих границах, в форме с www и без.";
+      body = '<div class="field"><label>хост</label><input id="w_host" value="' + h(w.host || "") + '" placeholder="example.com"><span class="hint">без схемы и путей</span></div>'
+        + '<div class="field"><label>метод</label><div class="opts" data-wopts="method">'
+        + ["GET", "POST", "PUT", "PATCH", "DELETE"].map(function (m) { return '<button data-val="' + m + '"' + ((w.method || "GET") === m ? ' class="on"' : "") + ">" + m + "</button>"; }).join("")
+        + "</div></div>"
+        + '<div class="field"><label>префиксы путей</label><input id="w_paths" value="' + h(w.paths || "") + '" placeholder="/v1/data"><span class="hint">через запятую; пусто = любой путь</span></div>';
+    } else if (w.step === 4) {
+      title = "Инструкция Лины"; lead = "По ключевым словам Лина подберёт тип и подставит форму критериев.";
+      body = '<div class="field"><label>название типа</label><input id="w_typeName" value="' + h(w.typeName || (k ? k[1] : "")) + '"></div>'
+        + '<div class="field"><label>ключевые слова</label><input id="w_keywords" value="' + h(w.keywords || "") + '" placeholder="заголовок, страница"></div>'
+        + '<div class="field"><label>что уточнять</label><input id="w_clarify" value="' + h(w.clarify || "") + '" placeholder="адрес страницы"></div>'
+        + '<div class="field"><label>шаблон критериев</label><input id="w_dodTemplate" value="' + h(w.dodTemplate || (k ? k[3] : "")) + '"></div>';
+    } else if (w.step === 5) {
+      title = "Проверка готовности"; lead = "Красное мешает работать, жёлтое — просто нужно знать."; next = "Завести сценарий";
+      body = (w.checks || []).map(function (c) {
+        return '<div class="card"><div class="row"><span class="chip ' + (c.ok ? "ok" : c.blocking ? "dan" : "warn") + '">'
+          + (c.ok ? "✓" : c.blocking ? "✗" : "!") + '</span><h3 style="font-size:14px">' + h(c.label) + "</h3></div>"
+          + '<span class="dim" style="font-size:12px">' + h(c.detail) + "</span></div>";
+      }).join("") || '<span class="spin"></span>';
+    } else {
+      title = "Сценарий готов"; lead = "Опишите задачу Лине — она подберёт тип и подставит критерии."; next = "Проверить ещё раз";
+      body = '<div class="card" style="border-color:var(--ok)">'
+        + '<span class="mono" style="font-size:10px;letter-spacing:.12em;color:var(--ok)">СЦЕНАРИЙ ЗАВЕДЁН</span>'
+        + (w.done || []).map(function (t) { return '<span class="mono dim" style="font-size:11.5px">• ' + h(t) + "</span>"; }).join("")
+        + "</div>"
+        + (w.checks || []).map(function (c) {
+          return '<div class="row" style="padding:6px 14px"><span class="chip ' + (c.ok ? "ok" : c.blocking ? "dan" : "warn") + '">'
+            + (c.ok ? "✓" : c.blocking ? "✗" : "!") + "</span><span>" + h(c.label) + "</span></div>";
+        }).join("");
+    }
+
+    return appbar(title, { back: true })
+      + '<div class="screen">'
+      + '<div class="pad" style="padding-bottom:10px"><span class="dim" style="font-size:13px;line-height:1.55">' + h(lead) + "</span></div>"
+      + '<div class="strip">' + pills + "</div>"
+      + body
+      + '<div class="btnrow">'
+        + (w.step > 1 && w.step < 6 ? '<button class="btn ghost" data-act="wback">Назад</button>' : "")
+        + '<button class="btn" data-act="wnext">' + h(next) + "</button>"
+      + "</div>"
+      + (w.step > 1 ? '<div class="btnrow"><button class="btn ghost" data-act="wreset">Начать заново</button></div>' : "")
+      + "</div>" + tabbar();
+  }
+
   function viewSection() {
+    if (S.section === "wizard") return viewWizard();
     var s = SECTIONS.filter(function (x) { return x.key === S.section; })[0];
     var a = S.admin || {}, body = "";
     if (S.section === "clients") {
@@ -523,11 +629,43 @@
       }
     }
 
+    // выбор опции в мастере (одиночный)
+    if (val !== null) {
+      var wo = el.closest("[data-wopts]");
+      if (wo) { S.wiz[wo.getAttribute("data-wopts")] = val; return render(); }
+    }
+
     var act = el.getAttribute("data-act"); if (!act) return;
     var arg = act.indexOf(":") > 0 ? act.slice(act.indexOf(":") + 1) : null;
     var cmd = arg ? act.slice(0, act.indexOf(":")) : act;
 
-    if (cmd === "back") return S.view ? back() : (S.section = null, render());
+    if (cmd === "back") return S.view ? back() : (S.section = null, S.wiz = { step: 1 }, render());
+    if (cmd === "wkind") { S.wiz.kind = arg; return render(); }
+    if (cmd === "wreset") { S.wiz = { step: 1 }; return render(); }
+    if (cmd === "wback") { S.wiz.step = Math.max(1, S.wiz.step - 1); return render(); }
+    if (cmd === "wnext") {
+      var g = function (id) { var e = document.getElementById(id); return e ? e.value.trim() : ""; };
+      var w = S.wiz;
+      if (w.step === 1) { if (!w.kind) return toast("нужно", "выберите род сценария"); return wizStep(2); }
+      if (w.step === 2) {
+        w.ownerNew = g("w_ownerNew"); w.sender = g("w_sender") || "cli:operator";
+        var owner = w.ownerNew || w.owner;
+        if (!owner) return toast("нужно", "укажите клиента");
+        w.owner = owner; return wizStep(3);
+      }
+      if (w.step === 3) {
+        w.host = g("w_host"); w.paths = g("w_paths");
+        if (!w.host) return toast("нужно", "укажите хост");
+        return wizStep(4);
+      }
+      if (w.step === 4) {
+        w.typeName = g("w_typeName"); w.keywords = g("w_keywords");
+        w.clarify = g("w_clarify"); w.dodTemplate = g("w_dodTemplate");
+        w.step = 5; render(); return wizCheck();
+      }
+      if (w.step === 5) return wizApply();
+      return wizCheck();
+    }
     if (cmd === "closesheet" || cmd === "sheetbd") { if (el.getAttribute("data-stop")) return; S.sheet = null; S.draft = {}; return render(); }
     if (cmd === "submitsheet") return submitSheet();
     if (cmd === "newtask") { S.sheet = { kind: "newtask" }; S.draft = {}; return render(); }
